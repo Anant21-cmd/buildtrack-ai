@@ -1,0 +1,378 @@
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+  directUrl = env("DIRECT_URL")
+}
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+// ----------------------------------------------------
+// Enums
+// ----------------------------------------------------
+
+enum Role {
+  SUPER_ADMIN
+  COMPANY_ADMIN
+  SITE_ENGINEER
+  STORE_MANAGER
+  CONTRACTOR
+  CLIENT
+}
+
+enum CompanyStatus {
+  PENDING
+  APPROVED
+  REJECTED
+  SUSPENDED
+}
+
+enum ProjectStatus {
+  PLANNING
+  ACTIVE
+  IN_PROGRESS
+  ON_HOLD
+  COMPLETED
+  CANCELLED
+}
+
+// ----------------------------------------------------
+// Models
+// ----------------------------------------------------
+
+model Company {
+  id                 String        @id @default(uuid())
+  name               String
+  regNumber          String        @unique
+  ownerName          String
+  email              String        @unique
+  phone              String
+  address            String
+  status             CompanyStatus @default(PENDING)
+  rejectionReason    String?
+  documentsSubmitted String[]      @default([])
+  
+  registeredAt       DateTime      @default(now())
+  approvedAt         DateTime?
+  updatedAt          DateTime      @updatedAt
+
+  users              User[]
+  projects           Project[]
+  workers            Worker[]
+  materials          Material[]
+  vendors            Vendor[]
+  equipment          Equipment[]
+  dailyProgress      DailyProgress[]
+  expenses           Expense[]
+}
+
+model User {
+  id             String    @id @default(uuid())
+  name           String
+  email          String    @unique
+  password       String
+  role           Role
+  isEmailVerified Boolean   @default(false)
+  verificationCode String?
+  verificationCodeExpires DateTime?
+  avatar         String?
+  
+  companyId      String?
+  company        Company?  @relation(fields: [companyId], references: [id])
+  
+  createdAt      DateTime  @default(now())
+  updatedAt      DateTime  @updatedAt
+
+  tasks          Task[]
+}
+
+model Project {
+  id             String        @id @default(uuid())
+  name           String
+  code           String?
+  client         String?
+  location       String
+  latitude       Float?
+  longitude      Float?
+  radiusMeters   Float?        @default(250)
+  description    String?
+  budget         Float         @default(0)
+  spent          Float         @default(0)
+  progress       Float         @default(0)
+  status         ProjectStatus @default(PLANNING)
+  isArchived     Boolean       @default(false)
+  
+  companyId      String
+  company        Company       @relation(fields: [companyId], references: [id])
+  
+  startDate      DateTime?
+  endDate        DateTime?
+  createdAt      DateTime      @default(now())
+  updatedAt      DateTime      @updatedAt
+
+  workers        Worker[]
+  materialReqs   MaterialRequest[]
+  allocations    ProjectMaterialAllocation[]
+  purchaseOrders PurchaseOrder[]
+  equipment      Equipment[]
+  tasks          Task[]
+  issues         Issue[]
+  dailyProgress  DailyProgress[]
+  expenses       Expense[]
+}
+
+model Worker {
+  id             String    @id @default(uuid())
+  name           String
+  trade          String
+  badgeId        String    @unique
+  status         String    @default("Active")
+  
+  companyId      String
+  company        Company   @relation(fields: [companyId], references: [id])
+  
+  projectId      String?
+  project        Project?  @relation(fields: [projectId], references: [id])
+  
+  attendances    Attendance[]
+}
+
+model Attendance {
+  id             String    @id @default(uuid())
+  workerId       String
+  worker         Worker    @relation(fields: [workerId], references: [id])
+  
+  date           DateTime  @default(now())
+  checkIn        DateTime?
+  checkOut       DateTime?
+  status         String
+  verifiedBy     String
+}
+
+model Material {
+  id             String    @id @default(uuid())
+  name           String
+  category       String
+  unit           String
+  stock          Float     @default(0)
+  minThreshold   Float     @default(0)
+  
+  companyId      String
+  company        Company   @relation(fields: [companyId], references: [id])
+  
+  requests       MaterialRequest[]
+  allocations    ProjectMaterialAllocation[]
+  receipts       MaterialReceipt[]
+}
+
+model MaterialRequest {
+  id                  String    @id @default(uuid())
+  materialId          String
+  material            Material  @relation(fields: [materialId], references: [id])
+  
+  projectId           String
+  project             Project   @relation(fields: [projectId], references: [id])
+  
+  requestedBy         String
+  qty                 Float
+  status              String    @default("PENDING")
+  requestDate         DateTime  @default(now())
+
+  purpose             String?
+  isExcess            Boolean   @default(false)
+  excessQty           Float     @default(0)
+  approvedQuota       Float     @default(0)
+  previouslyIssued    Float     @default(0)
+  excessJustification String?
+  rejectionReason     String?
+  reviewerName        String?
+}
+
+model ProjectMaterialAllocation {
+  id               String    @id @default(uuid())
+  projectId        String
+  project          Project   @relation(fields: [projectId], references: [id])
+  materialId       String
+  material         Material  @relation(fields: [materialId], references: [id])
+  allocatedQty     Float
+  issuedQty        Float     @default(0)
+  
+  @@unique([projectId, materialId])
+}
+
+model Vendor {
+  id             String    @id @default(uuid())
+  name           String
+  category       String
+  contactPerson  String?
+  email          String?
+  phone          String?
+  address        String?
+  rating         Float?    @default(5.0)
+  status         String    @default("ACTIVE")
+  
+  companyId      String
+  company        Company   @relation(fields: [companyId], references: [id])
+  
+  purchaseOrders PurchaseOrder[]
+}
+
+model PurchaseOrder {
+  id             String    @id @default(uuid())
+  poNumber       String?
+  vendorId       String
+  vendor         Vendor    @relation(fields: [vendorId], references: [id])
+  
+  projectId      String
+  project        Project   @relation(fields: [projectId], references: [id])
+  
+  totalAmount    Float
+  items          Json?
+  receipts       MaterialReceipt[]
+  status         String    @default("DRAFT")
+  orderDate      DateTime  @default(now())
+}
+
+model Equipment {
+  id             String    @id @default(uuid())
+  name           String
+  type           String
+  status         String    @default("Available")
+  
+  companyId      String
+  company        Company   @relation(fields: [companyId], references: [id])
+  
+  projectId      String?
+  project        Project?  @relation(fields: [projectId], references: [id])
+  
+  lastMaintenance DateTime?
+  nextMaintenance DateTime?
+}
+
+model Issue {
+  id             String    @id @default(uuid())
+  title          String
+  category       String
+  severity       String
+  status         String    @default("Open")
+  description    String
+  reportedBy     String
+  
+  projectId      String
+  project        Project   @relation(fields: [projectId], references: [id])
+  
+  createdAt      DateTime  @default(now())
+}
+
+model Task {
+  id             String    @id @default(uuid())
+  title          String
+  status         String    @default("Pending")
+  priority       String    @default("Medium")
+  dueDate        DateTime?
+  
+  assigneeId     String?
+  assignee       User?     @relation(fields: [assigneeId], references: [id])
+  
+  projectId      String
+  project        Project   @relation(fields: [projectId], references: [id])
+}
+
+model AuditLog {
+  id             String    @id @default(uuid())
+  actorName      String
+  actorRole      String
+  action         String
+  entity         String
+  entityId       String
+  previousValue  String?
+  newValue       String?
+  reason         String?
+  timestamp      DateTime  @default(now())
+}
+
+model DailyProgress {
+  id             String    @id @default(uuid())
+  projectId      String
+  project        Project   @relation(fields: [projectId], references: [id])
+  date           String
+  progressPct    Float
+  completed      String
+  workersPresent Int       @default(0)
+  issues         String?
+  mediaUrls      String[]  @default([])
+  companyId      String
+  company        Company   @relation(fields: [companyId], references: [id])
+  createdAt      DateTime  @default(now())
+}
+
+model Expense {
+  id             String    @id @default(uuid())
+  projectId      String
+  project        Project   @relation(fields: [projectId], references: [id])
+  category       String
+  description    String
+  date           String
+  amount         Float
+  companyId      String
+  company        Company   @relation(fields: [companyId], references: [id])
+  createdAt      DateTime  @default(now())
+}
+
+model MaterialMarketPrice {
+  id              String   @id @default(uuid())
+  materialName    String
+  brand           String?
+  specification   String?
+  unit            String
+  price           Float
+  minPrice        Float?
+  maxPrice        Float?
+  city            String   @default("Madurai")
+  district        String   @default("Madurai")
+  state           String   @default("Tamil Nadu")
+  country         String   @default("India")
+  sourceName      String
+  sourceUrl       String?
+  publishedAt     DateTime?
+  retrievedAt     DateTime @default(now())
+  status          String   @default("FRESH")
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+  
+  history         MaterialPriceHistory[]
+}
+
+model MaterialPriceHistory {
+  id              String   @id @default(uuid())
+  marketPriceId   String
+  marketPrice     MaterialMarketPrice @relation(fields: [marketPriceId], references: [id], onDelete: Cascade)
+  price           Float
+  unit            String
+  city            String
+  district        String
+  state           String
+  country         String
+  sourceName      String
+  sourceUrl       String?
+  retrievedAt     DateTime @default(now())
+  createdAt       DateTime @default(now())
+}
+
+model MaterialReceipt {
+  id             String    @id @default(uuid())
+  poId           String
+  purchaseOrder  PurchaseOrder @relation(fields: [poId], references: [id])
+  materialId     String
+  material       Material  @relation(fields: [materialId], references: [id])
+  
+  orderedQty     Float
+  deliveredQty   Float
+  isMismatch     Boolean   @default(false)
+  mismatchReason String?
+  receivedBy     String
+  status         String    @default("VERIFIED") // VERIFIED, MISMATCH_FLAGGED
+  
+  dateReceived   DateTime  @default(now())
+}
