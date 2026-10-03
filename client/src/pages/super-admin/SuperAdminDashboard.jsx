@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+﻿import React, { useState } from 'react';
 import { Link } from 'react-router-dom';
 import {
   Building2,
@@ -92,11 +92,7 @@ export default function SuperAdminDashboard() {
         </div>
 
         <div style={{ display: 'flex', gap: '0.75rem' }}>
-          <Link to="/register-company">
-            <Button variant="warning" size="sm">
-              + Simulate Company Signup
-            </Button>
-          </Link>
+          
           <Link to="/super-admin/companies">
             <Button variant="outline" size="sm" style={{ color: '#ffffff', borderColor: '#475569' }}>
               View All Companies
@@ -142,7 +138,7 @@ export default function SuperAdminDashboard() {
         <Card
           title="Rejected / Suspended"
           value={rejectedCompanies.length + suspendedCompanies.length}
-          subtitle={`${rejectedCompanies.length} Rejected · ${suspendedCompanies.length} Suspended`}
+          subtitle={`${rejectedCompanies.length} Rejected Â· ${suspendedCompanies.length} Suspended`}
           icon={XCircle}
           iconBg="#fef2f2"
           iconColor="#dc2626"
@@ -416,4 +412,5 @@ export default function SuperAdminDashboard() {
     </div>
   );
 }
+
 

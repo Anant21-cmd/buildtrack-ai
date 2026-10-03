@@ -1,305 +1,268 @@
-import React, { useState } from 'react';
+﻿import React, { useState, useEffect, useRef } from 'react';
 import { useNavigate, useLocation, Link } from 'react-router-dom';
-import { HardHat, Lock, Mail, AlertCircle, CheckCircle2, ArrowRight, Shield } from 'lucide-react';
+import { HardHat, Lock, Mail, AlertCircle, CheckCircle2, Eye, EyeOff } from 'lucide-react';
 import { GoogleLogin } from '@react-oauth/google';
-import Button from '../../components/common/Button';
 import { useAuth, DEMO_USERS } from '../../context/AuthContext';
 
 export default function Login() {
-  const { login, loginWithGoogle, verifyOtp, ROLES } = useAuth();
+  const { login, loginWithGoogle, ROLES } = useAuth();
   const navigate = useNavigate();
   const location = useLocation();
 
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
+  const [rememberMe, setRememberMe] = useState(false);
+  const [showPassword, setShowPassword] = useState(false);
+  
   const [errorMessage, setErrorMessage] = useState('');
-  const [loading, setLoading] = useState(false);
-
-  // OTP State
-  const [otpMode, setOtpMode] = useState(false);
-  const [otpCode, setOtpCode] = useState('');
   const [successMessage, setSuccessMessage] = useState('');
+  const [loading, setLoading] = useState(false);
+  const [forgotPasswordMode, setForgotPasswordMode] = useState(false);
+
+  // Vanta.js 3D WebGL Background
+  const [vantaEffect, setVantaEffect] = useState(null);
+  const vantaRef = useRef(null);
+
+  useEffect(() => {
+    let effect;
+    const initVanta = () => {
+      if (window.VANTA && !effect) {
+        effect = window.VANTA.NET({
+          el: vantaRef.current,
+          mouseControls: true,
+          touchControls: true,
+          gyroControls: false,
+          minHeight: 200.00,
+          minWidth: 200.00,
+          scale: 1.00,
+          scaleMobile: 1.00,
+          color: 0xea580c,      // Kreo Orange
+          backgroundColor: 0x050505, // Deep Black
+          points: 12.00,        // Density of points
+          maxDistance: 22.00,   // Connection distance
+          spacing: 18.00,       // Spread
+          showDots: true
+        });
+        setVantaEffect(effect);
+      }
+    };
+    
+    // Slight delay to ensure the CDN scripts have loaded
+    const timeout = setTimeout(initVanta, 100);
+
+    return () => {
+      clearTimeout(timeout);
+      if (effect) effect.destroy();
+    };
+  }, []);
 
   const redirectPath = location.state?.from?.pathname === '/' ? '/dashboard' : (location.state?.from?.pathname || '/dashboard');
 
   const handleGoogleSuccess = async (credentialResponse) => {
-    setErrorMessage('');
-    setLoading(true);
+    setErrorMessage(''); setLoading(true);
     try {
       const data = await loginWithGoogle(credentialResponse.credential);
-      if (data.user.role === ROLES.SUPER_ADMIN) {
-        navigate('/super-admin/dashboard');
-      } else {
-        navigate(redirectPath);
-      }
-    } catch (err) {
-      setErrorMessage(err.message);
-    } finally {
-      setLoading(false);
-    }
+      if (data.user.role === ROLES.SUPER_ADMIN) navigate('/super-admin/dashboard');
+      else navigate(redirectPath);
+    } catch (err) { setErrorMessage(err.message); } 
+    finally { setLoading(false); }
   };
 
   const handleLogin = async (e) => {
-    e.preventDefault();
-    setErrorMessage('');
-    setSuccessMessage('');
-    setLoading(true);
-
+    e.preventDefault(); setErrorMessage(''); setLoading(true);
     try {
-      const data = await login(email, password);
-      
-      if (data.requiresVerification) {
-        setOtpMode(true);
-        setSuccessMessage(data.message);
-        setLoading(false);
-        return;
-      }
-
-      // Redirect based on role
-      if (data.role === ROLES.SUPER_ADMIN) {
-        navigate('/super-admin/dashboard');
-      } else {
-        navigate(redirectPath);
-      }
-    } catch (err) {
-      setErrorMessage(err.message);
-    } finally {
-      setLoading(false);
-    }
+      const user = await login(email, password, rememberMe);
+      if (user.role === ROLES.SUPER_ADMIN) navigate('/super-admin/dashboard');
+      else navigate(redirectPath);
+    } catch (err) { setErrorMessage(err.message); } 
+    finally { setLoading(false); }
   };
 
-  const handleOtpVerify = async (e) => {
-    e.preventDefault();
-    setErrorMessage('');
-    setLoading(true);
-
+  const handleForgotPassword = async (e) => {
+    e.preventDefault(); setErrorMessage(''); setSuccessMessage(''); setLoading(true);
     try {
-      const user = await verifyOtp(email, otpCode);
-      if (user.role === ROLES.SUPER_ADMIN) {
-        navigate('/super-admin/dashboard');
-      } else {
-        navigate(redirectPath);
-      }
-    } catch (err) {
-      setErrorMessage(err.message);
-    } finally {
-      setLoading(false);
-    }
+      const res = await fetch('http://localhost:5000/api/auth/forgot-password', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ email })
+      });
+      const data = await res.json();
+      if (res.ok) setSuccessMessage(data.message);
+      else setErrorMessage(data.message || 'Failed to send reset email');
+    } catch (err) { setErrorMessage('A network error occurred. Please try again.'); } 
+    finally { setLoading(false); }
   };
 
-  // Quick preset loader for presentation convenience
-  const fillPreset = (user) => {
-    setEmail(user.email);
-    setPassword(user.password);
-    setErrorMessage('');
-    setOtpMode(false);
-    setOtpCode('');
-  };
+  
+  const styleSheet = `
+    .premium-bg {
+      position: relative; 
+      overflow: hidden; 
+      min-height: 100vh; 
+      display: flex;
+      font-family: 'Inter', -apple-system, sans-serif;
+    }
+
+    /* Minimalist Matte Card over WebGL */
+    .premium-card {
+      position: relative; z-index: 10;
+      background: rgba(10, 10, 10, 0.7); /* Translucent */
+      backdrop-filter: blur(20px);
+      -webkit-backdrop-filter: blur(20px);
+      border: 1px solid rgba(255, 255, 255, 0.1); 
+      border-radius: 16px;
+      padding: 3rem 2.5rem; width: 100%; max-width: 420px;
+      box-shadow: 0 35px 70px -15px rgba(0, 0, 0, 1);
+      animation: slideUp 0.8s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+    }
+    @keyframes slideUp {
+      0% { opacity: 0; transform: translateY(30px) scale(0.97); }
+      100% { opacity: 1; transform: translateY(0) scale(1); }
+    }
+
+    /* Input Styling - Solid Dark Background */
+    .premium-input {
+      width: 100%; padding: 0.875rem 1rem 0.875rem 3rem; border-radius: 8px;
+      border: 1px solid rgba(255,255,255,0.1); background: #111111; font-size: 0.95rem; color: #ffffff;
+      transition: all 0.3s ease; outline: none;
+    }
+    
+    /* Fix for Chrome's awful white autofill background */
+    .premium-input:-webkit-autofill,
+    .premium-input:-webkit-autofill:hover, 
+    .premium-input:-webkit-autofill:focus, 
+    .premium-input:-webkit-autofill:active {
+        -webkit-box-shadow: 0 0 0 30px #111111 inset !important;
+        -webkit-text-fill-color: #ffffff !important;
+        transition: background-color 5000s ease-in-out 0s;
+    }
+
+    .premium-input:focus {
+      border-color: #ea580c; 
+      background: #1a1a1a;
+      box-shadow: 0 0 0 1px #ea580c;
+    }
+    
+    /* Input Icon Styling */
+    .premium-icon { position: absolute; left: 1rem; top: 50%; transform: translateY(-50%); color: #64748b; transition: color 0.3s; z-index: 5; }
+    .premium-input-group:focus-within .premium-icon { color: #ea580c; }
+
+    /* Button Styling - Kreo Orange instead of White */
+    .premium-btn {
+      background: #ea580c; color: #ffffff;
+      font-weight: 700; font-size: 0.95rem; border: none; border-radius: 8px;
+      padding: 1rem; width: 100%; cursor: pointer; position: relative;
+      transition: all 0.2s ease;
+    }
+    .premium-btn:hover:not(:disabled) { 
+      background: #c2410c; color: #ffffff; 
+      box-shadow: 0 4px 15px rgba(234, 88, 12, 0.4);
+    }
+    .premium-btn:active:not(:disabled) { transform: translateY(1px); }
+  `;
 
   return (
-    <div
-      style={{
-        minHeight: '100vh',
-        backgroundColor: '#0f172a',
-        display: 'flex',
-        flexDirection: 'column',
-        alignItems: 'center',
-        justifyContent: 'center',
-        padding: '2rem 1rem'
-      }}
-    >
-      <div style={{ maxWidth: '460px', width: '100%' }}>
-        {/* Brand Header */}
-        <div style={{ textAlign: 'center', marginBottom: '2rem' }}>
-          <div
-            style={{
-              display: 'inline-flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-              width: '52px',
-              height: '52px',
-              borderRadius: '12px',
-              backgroundColor: '#d97706',
-              color: '#ffffff',
-              marginBottom: '0.75rem'
-            }}
-          >
-            <HardHat size={30} />
+    <>
+      <style>{styleSheet}</style>
+      <div className="premium-bg" ref={vantaRef}>
+        
+        <div style={{ flex: 1, display: 'flex', flexDirection: 'column', justifyContent: 'center', alignItems: 'center', padding: '2rem', zIndex: 10 }}>
+          
+          <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', marginBottom: '2.5rem' }}>
+            <div style={{ backgroundColor: '#ea580c', padding: '0.6rem', borderRadius: '10px', boxShadow: '0 8px 20px rgba(234,88,12,0.4)' }}>
+              <HardHat color="#ffffff" size={30} />
+            </div>
+            <span style={{ fontSize: '1.8rem', fontWeight: 800, color: '#ffffff', letterSpacing: '2px', textShadow: '0 4px 10px rgba(0,0,0,0.5)' }}>
+              KREO
+            </span>
           </div>
-          <h1 style={{ fontSize: '1.75rem', fontWeight: 800, color: '#ffffff', letterSpacing: '0.04em' }}>
-            BUILDTRACK <span style={{ color: '#f59e0b' }}>AI</span>
-          </h1>
-          <p style={{ color: '#94a3b8', fontSize: '0.875rem', marginTop: '0.25rem' }}>
-            Smart Construction Site Management Platform
-          </p>
-        </div>
 
-        {/* Login Card */}
-        <div
-          style={{
-            backgroundColor: '#ffffff',
-            borderRadius: '12px',
-            padding: '2rem',
-            boxShadow: '0 20px 25px -5px rgba(0, 0, 0, 0.25)',
-            border: '1px solid #e2e8f0'
-          }}
-        >
-          <div style={{ marginBottom: '1.5rem' }}>
-            <h2 style={{ fontSize: '1.25rem', fontWeight: 700, color: '#0f172a' }}>
-              Account Sign In
+          <div className="premium-card">
+            <h2 style={{ fontSize: '1.5rem', fontWeight: 600, color: '#ffffff', marginBottom: '0.5rem', textAlign: 'center' }}>
+              {forgotPasswordMode ? 'Reset Password' : 'Log in to Kreo'}
             </h2>
-            <p style={{ fontSize: '0.85rem', color: '#64748b', marginTop: '0.15rem' }}>
-              Enter your corporate credentials to access your site portal.
+            <p style={{ color: '#94a3b8', fontSize: '0.9rem', marginBottom: '2.5rem', textAlign: 'center' }}>
+              {forgotPasswordMode ? 'Enter your email to receive a secure reset link.' : 'Enter your credentials to access the platform.'}
             </p>
-          </div>
 
-          {/* Error Message Alert */}
-          {errorMessage && (
-            <div style={{ display: 'flex', alignItems: 'flex-start', gap: '0.75rem', padding: '1rem', backgroundColor: '#fef2f2', borderRadius: '8px', marginBottom: '1.5rem', borderLeft: '4px solid #ef4444' }}>
-              <AlertCircle size={20} style={{ color: '#ef4444', flexShrink: 0, marginTop: '2px' }} />
-              <p style={{ color: '#b91c1c', fontSize: '0.875rem', margin: 0, lineHeight: 1.5 }}>{errorMessage}</p>
+            {errorMessage && (
+              <div style={{ display: 'flex', alignItems: 'flex-start', gap: '0.75rem', padding: '1rem', backgroundColor: 'rgba(239, 68, 68, 0.1)', borderRadius: '8px', marginBottom: '1.5rem', border: '1px solid rgba(239, 68, 68, 0.2)' }}>
+                <AlertCircle size={20} color="#ef4444" style={{ flexShrink: 0 }} />
+                <p style={{ color: '#ef4444', fontSize: '0.85rem', margin: 0 }}>{errorMessage}</p>
+              </div>
+            )}
+            
+            {successMessage && (
+              <div style={{ display: 'flex', alignItems: 'flex-start', gap: '0.75rem', padding: '1rem', backgroundColor: 'rgba(34, 197, 94, 0.1)', borderRadius: '8px', marginBottom: '1.5rem', border: '1px solid rgba(34, 197, 94, 0.2)' }}>
+                <CheckCircle2 size={20} color="#22c55e" style={{ flexShrink: 0 }} />
+                <p style={{ color: '#22c55e', fontSize: '0.85rem', margin: 0 }}>{successMessage}</p>
+              </div>
+            )}
+
+            {forgotPasswordMode ? (
+              <form onSubmit={handleForgotPassword}>
+                <div style={{ marginBottom: '1.5rem' }}>
+                  <label style={{ display: 'block', fontSize: '0.85rem', fontWeight: 500, color: '#94a3b8', marginBottom: '0.5rem' }}>Work Email</label>
+                  <div className="premium-input-group" style={{ position: 'relative' }}>
+                    <Mail size={18} className="premium-icon" />
+                    <input type="email" required placeholder="engineer@kreo.com" value={email} onChange={(e) => setEmail(e.target.value)} className="premium-input" />
+                  </div>
+                </div>
+                <button type="submit" className="premium-btn" disabled={loading}>
+                  {loading ? 'Transmitting...' : 'Send Reset Link'}
+                </button>
+                <div style={{ textAlign: 'center', marginTop: '1.5rem' }}>
+                   <button type="button" onClick={() => { setForgotPasswordMode(false); setSuccessMessage(''); setErrorMessage(''); }} style={{ background: 'none', border: 'none', color: '#64748b', cursor: 'pointer', fontSize: '0.85rem', transition: 'color 0.2s' }} onMouseOver={(e)=>e.target.style.color='#ffffff'} onMouseOut={(e)=>e.target.style.color='#64748b'}>&larr; Back to login</button>
+                </div>
+              </form>
+            ) : (
+              <form onSubmit={handleLogin}>
+                <div style={{ marginBottom: '1.25rem' }}>
+                  <label style={{ display: 'block', fontSize: '0.85rem', fontWeight: 500, color: '#94a3b8', marginBottom: '0.5rem' }}>Work Email</label>
+                  <div className="premium-input-group" style={{ position: 'relative' }}>
+                    <Mail size={18} className="premium-icon" />
+                    <input type="email" required placeholder="engineer@kreo.com" value={email} onChange={(e) => setEmail(e.target.value)} className="premium-input" />
+                  </div>
+                </div>
+
+                <div style={{ marginBottom: '1.5rem' }}>
+                  <label style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.85rem', fontWeight: 500, color: '#94a3b8', marginBottom: '0.5rem' }}>
+                    <span>Password</span>
+                    <a href="#" onClick={(e) => { e.preventDefault(); setForgotPasswordMode(true); setErrorMessage(''); }} style={{ color: '#ea580c', textDecoration: 'none' }} onMouseOver={(e)=>e.target.style.color='#ff7e36'} onMouseOut={(e)=>e.target.style.color='#ea580c'}>Forgot?</a>
+                  </label>
+                  <div className="premium-input-group" style={{ position: 'relative' }}>
+                    <Lock size={18} className="premium-icon" />
+                    <input type={showPassword ? "text" : "password"} required placeholder="••••••••" value={password} onChange={(e) => setPassword(e.target.value)} className="premium-input" style={{ paddingRight: '2.5rem' }} />
+                    <button type="button" onClick={() => setShowPassword(!showPassword)} style={{ position: 'absolute', right: '0.75rem', top: '50%', transform: 'translateY(-50%)', background: 'none', border: 'none', cursor: 'pointer', color: '#64748b', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 10, padding: 0 }}>
+                      {showPassword ? <EyeOff size={16} /> : <Eye size={16} />}
+                    </button>
+                  </div>
+                </div>
+
+                <button type="submit" className="premium-btn" disabled={loading}>
+                  {loading ? 'Authenticating...' : 'Sign In'}
+                </button>
+              </form>
+            )}
+
+            <div style={{ position: 'relative', margin: '2rem 0', textAlign: 'center' }}>
+              <div style={{ position: 'absolute', top: '50%', left: 0, right: 0, borderTop: '1px solid rgba(255,255,255,0.05)' }} />
+              <span style={{ position: 'relative', background: 'transparent', padding: '0 1rem', color: '#475569', fontSize: '0.75rem', fontWeight: 600, letterSpacing: '1px' }}>OR</span>
             </div>
-          )}
 
-          {successMessage && (
-            <div style={{ display: 'flex', alignItems: 'flex-start', gap: '0.75rem', padding: '1rem', backgroundColor: '#ecfdf5', borderRadius: '8px', marginBottom: '1.5rem', borderLeft: '4px solid #10b981' }}>
-              <CheckCircle2 size={20} style={{ color: '#10b981', flexShrink: 0, marginTop: '2px' }} />
-              <p style={{ color: '#047857', fontSize: '0.875rem', margin: 0, lineHeight: 1.5 }}>{successMessage}</p>
+            <div style={{ display: 'flex', justifyContent: 'center' }}>
+              <GoogleLogin onSuccess={handleGoogleSuccess} onError={() => setErrorMessage('Google SSO Failed')} useOneTap theme="filled_black" />
             </div>
-          )}
 
-          {otpMode ? (
-            <form onSubmit={handleOtpVerify}>
-              <div style={{ marginBottom: '1.5rem', textAlign: 'center' }}>
-                <p style={{ color: '#475569', fontSize: '0.9rem' }}>We sent a 6-digit code to <strong>{email}</strong>. Enter it below to verify your identity.</p>
-              </div>
-
-              <div style={{ marginBottom: '1.5rem' }}>
-                <label style={{ display: 'block', fontSize: '0.875rem', fontWeight: 600, color: '#1e293b', marginBottom: '0.5rem' }}>
-                  Verification Code
-                </label>
-                <div style={{ position: 'relative' }}>
-                  <Shield size={20} style={{ position: 'absolute', left: '1rem', top: '50%', transform: 'translateY(-50%)', color: '#94a3b8' }} />
-                  <input
-                    type="text"
-                    required
-                    placeholder="123456"
-                    value={otpCode}
-                    onChange={(e) => setOtpCode(e.target.value)}
-                    maxLength={6}
-                    style={{ width: '100%', padding: '0.875rem 1rem 0.875rem 2.75rem', borderRadius: '8px', border: '1px solid #cbd5e1', fontSize: '1.2rem', letterSpacing: '0.2em', textAlign: 'center', outline: 'none', transition: 'all 0.2s', backgroundColor: '#f8fafc', color: '#0f172a' }}
-                  />
-                </div>
-              </div>
-
-              <Button type="submit" style={{ width: '100%', padding: '0.875rem', fontSize: '1rem', display: 'flex', justifyContent: 'center' }} disabled={loading}>
-                {loading ? 'Verifying...' : 'Verify & Login'}
-              </Button>
-              <div style={{ textAlign: 'center', marginTop: '1rem' }}>
-                 <button type="button" onClick={() => setOtpMode(false)} style={{ background: 'none', border: 'none', color: '#3b82f6', cursor: 'pointer', fontSize: '0.875rem' }}>Back to login</button>
-              </div>
-            </form>
-          ) : (
-            <form onSubmit={handleLogin}>
-              <div style={{ marginBottom: '1.25rem' }}>
-                <label style={{ display: 'block', fontSize: '0.875rem', fontWeight: 600, color: '#1e293b', marginBottom: '0.5rem' }}>
-                  Work Email
-                </label>
-                <div style={{ position: 'relative' }}>
-                  <Mail size={20} style={{ position: 'absolute', left: '1rem', top: '50%', transform: 'translateY(-50%)', color: '#94a3b8' }} />
-                  <input
-                    type="email"
-                    required
-                    placeholder="engineer@apex.com"
-                    value={email}
-                    onChange={(e) => setEmail(e.target.value)}
-                    style={{ width: '100%', padding: '0.875rem 1rem 0.875rem 2.75rem', borderRadius: '8px', border: '1px solid #cbd5e1', fontSize: '0.95rem', outline: 'none', transition: 'all 0.2s', backgroundColor: '#f8fafc', color: '#0f172a' }}
-                  />
-                </div>
-              </div>
-
-              <div style={{ marginBottom: '1.75rem' }}>
-                <label style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.875rem', fontWeight: 600, color: '#1e293b', marginBottom: '0.5rem' }}>
-                  <span>Password</span>
-                  <a href="#" style={{ color: '#3b82f6', textDecoration: 'none', fontWeight: 500 }}>Forgot?</a>
-                </label>
-                <div style={{ position: 'relative' }}>
-                  <Lock size={20} style={{ position: 'absolute', left: '1rem', top: '50%', transform: 'translateY(-50%)', color: '#94a3b8' }} />
-                  <input
-                    type="password"
-                    required
-                    placeholder="••••••••"
-                    value={password}
-                    onChange={(e) => setPassword(e.target.value)}
-                    style={{ width: '100%', padding: '0.875rem 1rem 0.875rem 2.75rem', borderRadius: '8px', border: '1px solid #cbd5e1', fontSize: '0.95rem', outline: 'none', transition: 'all 0.2s', backgroundColor: '#f8fafc', color: '#0f172a' }}
-                  />
-                </div>
-              </div>
-
-              <Button type="submit" style={{ width: '100%', padding: '0.875rem', fontSize: '1rem', display: 'flex', justifyContent: 'center' }} disabled={loading}>
-                {loading ? 'Authenticating...' : 'Sign In securely'}
-              </Button>
-            </form>
-          )}
-
-          {/* Google SSO Divider */}
-          <div style={{ position: 'relative', margin: '1.5rem 0', textAlign: 'center' }}>
-            <div style={{ position: 'absolute', top: '50%', left: 0, right: 0, borderTop: '1px solid #e2e8f0' }} />
-            <span style={{ position: 'relative', backgroundColor: '#ffffff', padding: '0 0.75rem', color: '#94a3b8', fontSize: '0.75rem', fontWeight: 600 }}>
-              OR
-            </span>
+            <div style={{ textAlign: 'center', marginTop: '2rem' }}>
+              <span style={{ fontSize: '0.85rem', color: '#64748b' }}>New company? </span>
+              <Link to="/register-company" style={{ fontSize: '0.85rem', color: '#ffffff', fontWeight: 600, textDecoration: 'none' }}>Apply for Access &rarr;</Link>
+            </div>
           </div>
 
-          <div style={{ display: 'flex', justifyContent: 'center' }}>
-            <GoogleLogin
-              onSuccess={handleGoogleSuccess}
-              onError={() => setErrorMessage('Google Single Sign-On Failed')}
-              useOneTap
-            />
-          </div>
-
-          {/* New Company Registration Link */}
-          <div style={{ textAlign: 'center', marginTop: '1.25rem', paddingTop: '1rem', borderTop: '1px solid #f1f5f9' }}>
-            <span style={{ fontSize: '0.8rem', color: '#64748b' }}>
-              New construction company?{' '}
-            </span>
-            <Link to="/register-company" style={{ fontSize: '0.8rem', color: '#1e3a8a', fontWeight: 700 }}>
-              Register for Platform Verification &rarr;
-            </Link>
-          </div>
         </div>
-
-        {/* Demo Fast Login Area */}
-        <div style={{ marginTop: '2rem', display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
-          <h3 style={{ fontSize: '0.75rem', fontWeight: 700, color: '#94a3b8', textTransform: 'uppercase', letterSpacing: '0.05em', textAlign: 'center' }}>
-            Testing / Fast Access Presets
-          </h3>
-          <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.5rem', justifyContent: 'center' }}>
-            {DEMO_USERS.map((user, idx) => (
-              <button
-                key={idx}
-                type="button"
-                onClick={() => fillPreset(user)}
-                style={{
-                  backgroundColor: 'rgba(255,255,255,0.1)',
-                  color: '#e2e8f0',
-                  border: '1px solid rgba(255,255,255,0.2)',
-                  borderRadius: '6px',
-                  padding: '0.4rem 0.75rem',
-                  fontSize: '0.75rem',
-                  fontWeight: 600,
-                  cursor: 'pointer',
-                  transition: 'all 0.2s'
-                }}
-                onMouseOver={(e) => { e.currentTarget.style.backgroundColor = 'rgba(255,255,255,0.2)'; }}
-                onMouseOut={(e) => { e.currentTarget.style.backgroundColor = 'rgba(255,255,255,0.1)'; }}
-              >
-                {user.label}
-              </button>
-            ))}
-          </div>
       </div>
-    </div>
-    </div>
+    </>
   );
 }
+
+
+

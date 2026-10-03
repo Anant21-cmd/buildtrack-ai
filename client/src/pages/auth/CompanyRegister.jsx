@@ -100,7 +100,7 @@ export default function CompanyRegister() {
             <HardHat size={32} />
           </div>
           <h1 style={{ fontSize: '1.75rem', fontWeight: 800, color: '#ffffff' }}>
-            BUILDTRACK <span style={{ color: '#f59e0b' }}>AI</span>
+            KREO
           </h1>
           <p style={{ color: '#94a3b8', fontSize: '0.9rem', marginTop: '0.25rem' }}>
             Construction Company Onboarding & Compliance Portal
@@ -311,7 +311,7 @@ export default function CompanyRegister() {
                   Application Submitted Successfully!
                 </h2>
                 <p style={{ color: '#64748b', fontSize: '0.9rem', maxWidth: '480px', margin: '0.5rem auto 0', lineHeight: 1.5 }}>
-                  <strong>{createdCompany?.name}</strong> has been registered with ID <strong>{createdCompany?.id}</strong>. In accordance with BuildTrack governance rules, your account cannot access company management features until a Super Admin approves your corporate credentials.
+                  <strong>{createdCompany?.name}</strong> has been registered with ID <strong>{createdCompany?.id}</strong>. In accordance with Kreo governance rules, your account cannot access company management features until a Super Admin approves your corporate credentials.
                 </p>
               </div>
 

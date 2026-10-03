@@ -22,7 +22,7 @@ exports.seedSuperAdmin = async (req, res, next) => {
     const superAdmin = await prisma.user.create({
       data: {
         name: 'Anand',
-        email: 'anand@buildtrack.ai',
+        email: 'anand@kreo.ai',
         password: hashedPassword,
         role: 'SUPER_ADMIN',
         avatar: 'AN',
@@ -44,7 +44,7 @@ const generateOTP = () => Math.floor(100000 + Math.random() * 900000).toString()
 // 2. Login
 exports.login = async (req, res, next) => {
   try {
-    const { email, password } = req.body;
+    const { email, password, rememberMe } = req.body;
 
     const user = await prisma.user.findUnique({
       where: { email },
@@ -53,6 +53,10 @@ exports.login = async (req, res, next) => {
 
     if (!user) {
       return res.status(401).json({ message: 'Invalid login credentials' });
+    }
+
+    if (!user.isEmailVerified) {
+      return res.status(401).json({ message: 'Account not verified. Please check your email for the setup link.' });
     }
 
     const isMatch = await bcrypt.compare(password, user.password);
@@ -69,109 +73,18 @@ exports.login = async (req, res, next) => {
       if (user.company.status === 'SUSPENDED') return res.status(401).json({ message: 'Company account is currently suspended' });
     }
 
-    // OTP Verification Check
-    if (!user.isEmailVerified) {
-      const otp = generateOTP();
-      const expires = new Date(Date.now() + 10 * 60 * 1000); // 10 mins
-
-      await prisma.user.update({
-        where: { id: user.id },
-        data: { verificationCode: otp, verificationCodeExpires: expires }
-      });
-
-      await sendEmail({
-        to: user.email,
-        subject: 'BuildTrack AI - Verification Code',
-        text: `Your login verification code is: ${otp}. It will expire in 10 minutes.`
-      });
-
-      return res.status(200).json({
-        requiresVerification: true,
-        email: user.email,
-        message: 'Verification code sent to email'
-      });
-    }
-
+    // Generate JWT (Expire in 30d if rememberMe, else 1d)
     const token = jwt.sign(
-      { id: user.id, role: user.role, companyId: user.companyId },
-      process.env.JWT_SECRET || 'secret',
-      { expiresIn: '1d' }
+      { id: user.id, email: user.email, role: user.role, companyId: user.companyId },
+      process.env.JWT_SECRET || 'fallback-secret-key-for-dev',
+      { expiresIn: rememberMe ? '30d' : '1d' }
     );
 
-    res.status(200).json({
-      token,
-      user: {
-        id: user.id,
-        name: user.name,
-        email: user.email,
-        role: user.role,
-        avatar: user.avatar,
-        companyId: user.companyId,
-        company: user.company?.name || 'BuildTrack Platform HQ',
-        companyStatus: user.company?.status || 'APPROVED'
-      }
-    });
-
+    const { password: _, verificationCode, verificationCodeExpires, ...safeUser } = user;
+    res.status(200).json({ success: true, token, user: safeUser });
   } catch (error) {
-    next(error);
-  }
-};
-
-
-
-// 3. Verify OTP
-exports.verifyOtp = async (req, res, next) => {
-  try {
-    const { email, code } = req.body;
-
-    const user = await prisma.user.findUnique({
-      where: { email },
-      include: { company: true }
-    });
-
-    if (!user) {
-      return res.status(404).json({ message: 'User not found' });
-    }
-
-    if (user.verificationCode !== code) {
-      return res.status(400).json({ message: 'Invalid verification code' });
-    }
-
-    if (new Date() > new Date(user.verificationCodeExpires)) {
-      return res.status(400).json({ message: 'Verification code has expired' });
-    }
-
-    // OTP is valid
-    await prisma.user.update({
-      where: { id: user.id },
-      data: { 
-        isEmailVerified: true,
-        verificationCode: null,
-        verificationCodeExpires: null
-      }
-    });
-
-    const token = jwt.sign(
-      { id: user.id, role: user.role, companyId: user.companyId },
-      process.env.JWT_SECRET || 'secret',
-      { expiresIn: '1d' }
-    );
-
-    res.status(200).json({
-      token,
-      user: {
-        id: user.id,
-        name: user.name,
-        email: user.email,
-        role: user.role,
-        avatar: user.avatar,
-        companyId: user.companyId,
-        company: user.company?.name || 'BuildTrack Platform HQ',
-        companyStatus: user.company?.status || 'APPROVED'
-      }
-    });
-  } catch (error) {
-    next(error);
+    console.error('Login error:', error);
+    res.status(500).json({ message: 'Server error during login' });
   }
 };
 
@@ -233,7 +146,7 @@ exports.googleLogin = async (req, res, next) => {
         role: user.role,
         avatar: user.avatar,
         companyId: user.companyId,
-        company: user.company?.name || 'BuildTrack Platform HQ',
+        company: user.company?.name || 'Kreo Platform HQ',
         companyStatus: user.company?.status || 'APPROVED'
       }
     });
@@ -241,6 +154,46 @@ exports.googleLogin = async (req, res, next) => {
   } catch (error) {
     console.error("Google Auth Backend Error:", error);
     res.status(401).json({ message: 'Google authentication failed' });
+  }
+};
+
+
+
+
+exports.forgotPassword = async (req, res, next) => {
+  try {
+    const { email } = req.body;
+    
+    const user = await prisma.user.findUnique({ where: { email } });
+    if (!user) {
+      // Don't leak that the user doesn't exist for security
+      return res.status(200).json({ success: true, message: 'If an account with that email exists, we sent a password reset link.' });
+    }
+
+    const crypto = require('crypto');
+    const resetToken = crypto.randomBytes(32).toString('hex');
+    const tokenExpires = new Date(Date.now() + 1 * 60 * 60 * 1000); // 1 hour
+
+    await prisma.user.update({
+      where: { email },
+      data: {
+        verificationCode: resetToken,
+        verificationCodeExpires: tokenExpires
+      }
+    });
+
+    const resetLink = `http://localhost:3000/reset-password?token=${resetToken}&email=${encodeURIComponent(email)}`;
+
+    await sendEmail({
+      to: email,
+      subject: 'Kreo - Password Reset Request',
+      text: `You requested a password reset.\n\nPlease click the link below to reset your password:\n\n${resetLink}\n\nThis link will expire in 1 hour. If you did not request this, please ignore this email.`
+    });
+
+    res.status(200).json({ success: true, message: 'If an account with that email exists, we sent a password reset link.' });
+  } catch (error) {
+    console.error('Forgot password error:', error);
+    res.status(500).json({ message: 'Server error' });
   }
 };
 

@@ -1,4 +1,4 @@
-import React from 'react';
+﻿import React from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Menu, Bell, Shield, LogOut } from 'lucide-react';
 import { useAuth, ROLES } from '../../context/AuthContext';
@@ -73,17 +73,7 @@ export default function Navbar({ onMenuToggle }) {
           aria-label="Notifications"
         >
           <Bell size={18} />
-          <span
-            style={{
-              position: 'absolute',
-              top: '4px',
-              right: '4px',
-              width: '8px',
-              height: '8px',
-              borderRadius: '50%',
-              backgroundColor: '#dc2626'
-            }}
-          />
+          
         </button>
 
         {/* User Card */}
@@ -146,3 +136,4 @@ export default function Navbar({ onMenuToggle }) {
     </header>
   );
 }
+

@@ -9,5 +9,7 @@ router.get('/', protect, userController.getAllUsers);
 // Invite a new user
 router.post('/invite', protect, userController.inviteUser);
 
-module.exports = router;
+// Setup password / Reset password
+router.post('/setup-password', userController.setupPassword);
 
+module.exports = router;

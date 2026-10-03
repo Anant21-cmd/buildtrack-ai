@@ -22,7 +22,7 @@ app.use('/uploads', express.static(path.join(__dirname, '../uploads')));
 app.get('/api/health', (req, res) => {
   res.status(200).json({
     success: true,
-    message: 'BuildTrack AI REST API is running successfully',
+    message: 'Kreo REST API is running successfully',
     version: '1.0.0',
     phase: 'Phase 1: Project Setup',
     timestamp: new Date().toISOString()
@@ -31,7 +31,7 @@ app.get('/api/health', (req, res) => {
 
 // Root Route
 app.get('/', (req, res) => {
-  res.send('BuildTrack AI Server is Active. Access API endpoints via /api');
+  res.send('Kreo Server is Active. Access API endpoints via /api');
 });
 
 // Authentication Routes
@@ -97,7 +97,7 @@ app.use((err, req, res, next) => {
 // Start Server
 app.listen(PORT, () => {
   console.log(`=========================================`);
-  console.log(`🏗️  BUILDTRACK AI API SERVER RUNNING`);
+  console.log(`🏗️  KREO API SERVER RUNNING`);
   console.log(`📡 URL: http://localhost:${PORT}`);
   console.log(`🩺 Health: http://localhost:${PORT}/api/health`);
   console.log(`=========================================`);

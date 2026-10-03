@@ -49,6 +49,7 @@ import ReportList from './pages/reports/ReportList';
 import NotificationList from './pages/notifications/NotificationList';
 import CompanySettings from './pages/settings/CompanySettings';
 import Login from './pages/auth/Login';
+import SetupAccount from './pages/auth/SetupAccount';
 import Unauthorized from './pages/auth/Unauthorized';
 
 class ErrorBoundary extends React.Component {
@@ -113,6 +114,8 @@ export default function App() {
                                     <div className="app-container">
                                       <Routes>
                                         <Route path="/login" element={<Login />} />
+                                        <Route path="/setup-account" element={<SetupAccount />} />
+                                        <Route path="/reset-password" element={<SetupAccount />} />
                                         <Route path="/register-company" element={<CompanyRegister />} />
                                         <Route path="/unauthorized" element={<Unauthorized />} />
 
@@ -186,3 +189,5 @@ export default function App() {
     </ErrorBoundary>
   );
 }
+
+

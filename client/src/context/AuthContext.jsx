@@ -46,12 +46,12 @@ export function AuthProvider({ children }) {
   }, [currentUser, token]);
 
   // Login handler connected to Express Backend
-  const login = async (email, password) => {
+  const login = async (email, password, rememberMe) => {
     try {
       const response = await fetch('http://localhost:5000/api/auth/login', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ email, password })
+        body: JSON.stringify({ email, password, rememberMe })
       });
 
       const data = await response.json();
@@ -160,3 +160,4 @@ export function useAuth() {
   }
   return context;
 }
+

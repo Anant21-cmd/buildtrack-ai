@@ -1,4 +1,4 @@
-import React from 'react';
+﻿import React from 'react';
 import { NavLink, useLocation } from 'react-router-dom';
 import { useCompany } from '../../context/CompanyContext';
 import {
@@ -37,7 +37,7 @@ export default function Sidebar({ isCollapsed, setIsCollapsed, isMobileOpen, set
     if (pathParts[1] === 'projects' && pathParts[2]) {
       const projectId = pathParts[2];
       return [
-        { label: '← Back to Projects', path: '/projects', icon: Briefcase },
+        { label: 'â† Back to Projects', path: '/projects', icon: Briefcase },
         { label: 'Project Dashboard', path: `/projects/${projectId}?tab=OVERVIEW`, icon: LayoutDashboard },
         { label: 'Workforce & Teams', path: `/projects/${projectId}?tab=WORKFORCE`, icon: Users },
         { label: 'Materials & Stock', path: `/projects/${projectId}?tab=MATERIALS`, icon: Package },
@@ -134,14 +134,14 @@ export default function Sidebar({ isCollapsed, setIsCollapsed, isMobileOpen, set
       {/* Sidebar Container */}
       <aside
         style={{
-          width: isCollapsed ? '78px' : '260px',
+          width: '260px',
           backgroundColor: '#0f172a',
           color: '#ffffff',
           display: 'flex',
           flexDirection: 'column',
           transition: 'width 0.25s cubic-bezier(0.4, 0, 0.2, 1), transform 0.25s ease',
           zIndex: 50,
-          position: 'relative',
+          position: 'fixed', top: 0, bottom: 0, left: 0, transform: isMobileOpen ? 'translateX(0)' : 'translateX(-100%)',
           borderRight: '1px solid #1e293b'
         }}
         className={`sidebar-aside ${isMobileOpen ? 'mobile-open' : ''}`}
@@ -175,7 +175,7 @@ export default function Sidebar({ isCollapsed, setIsCollapsed, isMobileOpen, set
             {!isCollapsed && (
               <div style={{ whiteSpace: 'nowrap' }}>
                 <span style={{ fontSize: '1.05rem', fontWeight: 800, letterSpacing: '0.04em' }}>
-                  BUILDTRACK <span style={{ color: '#f59e0b' }}>AI</span>
+                  KREO
                 </span>
                 <span style={{ display: 'block', fontSize: '0.65rem', color: '#94a3b8', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
                   Site OS
@@ -305,3 +305,5 @@ export default function Sidebar({ isCollapsed, setIsCollapsed, isMobileOpen, set
     </>
   );
 }
+
+
