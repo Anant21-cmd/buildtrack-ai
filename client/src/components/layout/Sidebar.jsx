@@ -1,4 +1,4 @@
-﻿import React from 'react';
+import React from 'react';
 import { NavLink, useLocation } from 'react-router-dom';
 import { useCompany } from '../../context/CompanyContext';
 import {
@@ -107,6 +107,7 @@ export default function Sidebar({ isCollapsed, setIsCollapsed, isMobileOpen, set
         return [
           { label: 'Dashboard', path: '/company-admin/dashboard', icon: LayoutDashboard },
           { label: 'Projects', path: '/projects', icon: Briefcase },
+          { label: 'Team Management', path: '/team-management', icon: Users },
           { label: 'Company Settings', path: '/settings', icon: Settings }
         ];
     }

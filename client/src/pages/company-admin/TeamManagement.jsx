@@ -20,7 +20,7 @@ export default function TeamManagement() {
 
   const fetchUsers = async () => {
     try {
-      const res = await fetch('http://localhost:5000/api/users', {
+      const res = await fetch('/api/users', {
         headers: { Authorization: `Bearer ${token}` }
       });
       if (res.ok) {
@@ -42,7 +42,7 @@ export default function TeamManagement() {
     e.preventDefault();
     setInviting(true);
     try {
-      const res = await fetch('http://localhost:5000/api/users/invite', {
+      const res = await fetch('/api/users/invite', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',

@@ -35,7 +35,7 @@ const PurchaseOrders = () => {
       accessor: 'projectId',
       render: (row) => projects.find(p => p.id === row.projectId)?.name || row.projectId
     },
-    { header: 'Total Amount', accessor: 'totalAmount', render: (row) => `$${row.totalAmount}` },
+    { header: 'Total Amount', accessor: 'totalAmount', render: (row) => `₹${row.totalAmount}` },
     { header: 'Order Date', accessor: 'orderDate' },
     { 
       header: 'Status', 
@@ -111,7 +111,7 @@ const PurchaseOrders = () => {
               <input type="number" className="form-input" required min="1" value={newPO.qty} onChange={e => setNewPO({...newPO, qty: e.target.value})} />
             </div>
             <div className="form-group">
-              <label>Unit Price ($)</label>
+              <label>Unit Price (₹)</label>
               <input type="number" className="form-input" required min="0.1" step="0.1" value={newPO.unitPrice} onChange={e => setNewPO({...newPO, unitPrice: e.target.value})} />
             </div>
           </div>

@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+﻿import React, { useState } from 'react';
 import { useLocation } from 'react-router-dom';
 import {
   Building2,
@@ -341,12 +341,7 @@ export default function CompanyManagement() {
             <div>
               <label style={{ fontSize: '0.75rem', fontWeight: 700, color: '#64748b', textTransform: 'uppercase' }}>Submitted Compliance Files</label>
               <div style={{ display: 'flex', flexDirection: 'column', gap: '0.35rem', marginTop: '0.35rem' }}>
-                {(selectedCompany.documentsSubmitted || ['Corporate_License.pdf']).map((doc, i) => (
-                  <div key={i} style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', fontSize: '0.85rem', color: '#1e3a8a' }}>
-                    <FileText size={16} />
-                    <span>{doc}</span>
-                  </div>
-                ))}
+                {(selectedCompany.documentsSubmitted || ['Corporate_License.pdf']).map((doc, i) => { const isData = typeof doc === 'string' && doc.startsWith('data:'); const name = isData ? 'Submitted_Document_' + (i+1) + '.pdf' : doc; return (<div key={i} style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', fontSize: '0.85rem', color: '#1e3a8a', overflow: 'hidden' }}><FileText size={16} style={{ flexShrink: 0 }} /><span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }} title={name}>{isData ? <a href={doc} download={name} style={{ color: 'inherit', textDecoration: 'underline' }}>{name}</a> : name}</span></div>); })}
               </div>
             </div>
           </div>
@@ -355,4 +350,5 @@ export default function CompanyManagement() {
     </div>
   );
 }
+
 

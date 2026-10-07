@@ -19,6 +19,7 @@ import Badge from '../../components/common/Badge';
 import Table from '../../components/common/Table';
 import Modal from '../../components/common/Modal';
 import { useProjects, PROJECT_STATUSES } from '../../context/ProjectContext';
+import { Sparkles, Wand2 } from 'lucide-react';
 
 export default function ProjectList() {
   const { projects, addProject, updateProject, archiveProject } = useProjects();
@@ -50,29 +51,33 @@ export default function ProjectList() {
   };
   const [formData, setFormData] = useState(initialForm);
   const [formError, setFormError] = useState('');
-  const [isGettingLocation, setIsGettingLocation] = useState(false);
 
-  const handleGetLocation = () => {
-    if (!navigator.geolocation) {
-      alert("Geolocation is not supported by your browser");
+
+  const handleGenerateCode = () => {
+    const prefix = formData.name ? formData.name.substring(0, 3).toUpperCase() : 'PRJ';
+    const randomNum = Math.floor(1000 + Math.random() * 9000);
+    setFormData(prev => ({ ...prev, code: `${prefix}-${new Date().getFullYear()}-${randomNum}` }));
+  };
+
+  const handleGenerateScope = () => {
+    if (!formData.name) {
+      alert("Please enter a project name first.");
       return;
     }
-    setIsGettingLocation(true);
-    navigator.geolocation.getCurrentPosition(
-      (position) => {
-        setFormData(prev => ({
-          ...prev,
-          latitude: position.coords.latitude,
-          longitude: position.coords.longitude
-        }));
-        setIsGettingLocation(false);
-      },
-      (error) => {
-        console.error(error);
-        alert("Unable to retrieve your location.");
-        setIsGettingLocation(false);
-      }
-    );
+    const template = `Project Scope Document: ${formData.name}
+Client: ${formData.client || 'TBD'}
+
+1. Structural Milestones
+   - Site Preparation & Excavation
+   - Foundation & Substructure
+   - Superstructure Erection
+2. Trades Involved
+   - Concrete & Masonry
+   - Mechanical, Electrical, Plumbing (MEP)
+3. Quality & Compliance
+   - ISO 9001 adherence required
+   - Weekly material auditing`;
+    setFormData(prev => ({ ...prev, description: template }));
   };
 
   // Tab filtered projects
@@ -87,7 +92,7 @@ export default function ProjectList() {
     setFormData((prev) => ({ ...prev, [name]: value }));
   };
 
-  const handleCreateSubmit = (e) => {
+  const handleCreateSubmit = async (e) => {
     e.preventDefault();
     setFormError('');
 
@@ -101,9 +106,13 @@ export default function ProjectList() {
       return;
     }
 
-    addProject(formData);
-    setCreateModalOpen(false);
-    setFormData(initialForm);
+    try {
+      await addProject(formData);
+      setCreateModalOpen(false);
+      setFormData(initialForm);
+    } catch (err) {
+      setFormError(err.message || 'Failed to create project');
+    }
   };
 
   const handleEditSubmit = (e) => {
@@ -181,10 +190,6 @@ export default function ProjectList() {
       render: (row) => (
         <div>
           <p style={{ fontWeight: 600, color: '#0f172a' }}>{row.client}</p>
-          <div style={{ display: 'flex', alignItems: 'center', gap: '0.35rem', fontSize: '0.75rem', color: '#059669', marginTop: '0.15rem' }}>
-            <Compass size={12} />
-            <span>GPS: {row.radiusMeters}m radius</span>
-          </div>
         </div>
       )
     },
@@ -193,9 +198,9 @@ export default function ProjectList() {
       accessor: 'budget',
       render: (row) => (
         <div>
-          <p style={{ fontWeight: 700, color: '#0f172a' }}>${(row.budget / 1000000).toFixed(2)}M</p>
+          <p style={{ fontWeight: 700, color: '#0f172a' }}>₹{(row.budget / 100000).toFixed(2)}L</p>
           <span style={{ fontSize: '0.75rem', color: '#64748b' }}>
-            Spent: ${(row.spent / 1000000).toFixed(2)}M ({Math.round((row.spent / (row.budget || 1)) * 100)}%)
+            Spent: ₹{(row.spent / 100000).toFixed(2)}L ({Math.round((row.spent / (row.budget || 1)) * 100)}%)
           </span>
         </div>
       )
@@ -277,7 +282,7 @@ export default function ProjectList() {
             </h1>
           </div>
           <p style={{ fontSize: '0.875rem', color: '#64748b' }}>
-            Create and monitor job sites, define GPS attendance perimeters, and track multi-site milestones.
+            Create and monitor job sites and track multi-site milestones.
           </p>
         </div>
 
@@ -344,7 +349,7 @@ export default function ProjectList() {
         isOpen={createModalOpen}
         onClose={() => setCreateModalOpen(false)}
         title="Add New Construction Project"
-        subtitle="Initialize project site details, GPS boundary, and financial budget"
+        subtitle="Initialize project site details and financial budget"
         maxWidth="680px"
         footer={
           <>
@@ -381,9 +386,14 @@ export default function ProjectList() {
               />
             </div>
             <div>
-              <label style={{ display: 'block', fontSize: '0.8rem', fontWeight: 700, color: '#334155', marginBottom: '0.25rem' }}>
-                Project Code *
-              </label>
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '0.25rem' }}>
+                <label style={{ fontSize: '0.8rem', fontWeight: 700, color: '#334155' }}>
+                  Project Code *
+                </label>
+                <button type="button" onClick={handleGenerateCode} style={{ display: 'flex', alignItems: 'center', gap: '0.25rem', fontSize: '0.7rem', color: '#059669', background: 'none', border: 'none', cursor: 'pointer', fontWeight: 600 }}>
+                  <Wand2 size={12} /> Auto-Generate
+                </button>
+              </div>
               <input
                 type="text"
                 name="code"
@@ -413,7 +423,7 @@ export default function ProjectList() {
             </div>
             <div>
               <label style={{ display: 'block', fontSize: '0.8rem', fontWeight: 700, color: '#334155', marginBottom: '0.25rem' }}>
-                Allocated Total Budget ($) *
+                Allocated Total Budget (₹) *
               </label>
               <input
                 type="number"
@@ -443,59 +453,7 @@ export default function ProjectList() {
             />
           </div>
 
-          {/* GPS Attendance Geofence Box (Section 11) */}
-          <div style={{ backgroundColor: '#f0fdf4', border: '1px solid #bbf7d0', borderRadius: '8px', padding: '0.85rem' }}>
-            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '0.5rem' }}>
-              <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-                <Compass size={16} style={{ color: '#059669' }} />
-                <span style={{ fontSize: '0.8rem', fontWeight: 700, color: '#047857' }}>
-                  GPS Attendance Site Coordinates & Geofence (Haversine Radius)
-                </span>
-              </div>
-              <button 
-                type="button" 
-                onClick={handleGetLocation} 
-                disabled={isGettingLocation}
-                style={{ fontSize: '0.7rem', padding: '0.3rem 0.6rem', backgroundColor: '#059669', color: 'white', border: 'none', borderRadius: '4px', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '0.3rem' }}
-              >
-                <MapPin size={12} /> {isGettingLocation ? 'Locating...' : 'Get My Location'}
-              </button>
-            </div>
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '0.75rem' }}>
-              <div>
-                <label style={{ fontSize: '0.75rem', color: '#334155', fontWeight: 600 }}>Latitude</label>
-                <input
-                  type="number"
-                  step="any"
-                  name="latitude"
-                  value={formData.latitude}
-                  onChange={handleInputChange}
-                  style={{ width: '100%', padding: '0.45rem', borderRadius: '4px', border: '1px solid #cbd5e1', fontSize: '0.8rem' }}
-                />
-              </div>
-              <div>
-                <label style={{ fontSize: '0.75rem', color: '#334155', fontWeight: 600 }}>Longitude</label>
-                <input
-                  type="number"
-                  step="any"
-                  name="longitude"
-                  value={formData.longitude}
-                  onChange={handleInputChange}
-                  style={{ width: '100%', padding: '0.45rem', borderRadius: '4px', border: '1px solid #cbd5e1', fontSize: '0.8rem' }}
-                />
-              </div>
-              <div>
-                <label style={{ fontSize: '0.75rem', color: '#334155', fontWeight: 600 }}>Radius (Meters)</label>
-                <input
-                  type="number"
-                  name="radiusMeters"
-                  value={formData.radiusMeters}
-                  onChange={handleInputChange}
-                  style={{ width: '100%', padding: '0.45rem', borderRadius: '4px', border: '1px solid #cbd5e1', fontSize: '0.8rem' }}
-                />
-              </div>
-            </div>
-          </div>
+
 
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '1rem' }}>
             <div>
@@ -543,9 +501,14 @@ export default function ProjectList() {
           </div>
 
           <div>
-            <label style={{ display: 'block', fontSize: '0.8rem', fontWeight: 700, color: '#334155', marginBottom: '0.25rem' }}>
-              Project Scope & Description
-            </label>
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '0.25rem' }}>
+              <label style={{ fontSize: '0.8rem', fontWeight: 700, color: '#334155' }}>
+                Project Scope & Description
+              </label>
+              <button type="button" onClick={handleGenerateScope} style={{ display: 'flex', alignItems: 'center', gap: '0.25rem', fontSize: '0.7rem', color: '#1e3a8a', background: 'none', border: 'none', cursor: 'pointer', fontWeight: 600 }}>
+                <Sparkles size={12} /> AI Auto-Fill Scope
+              </button>
+            </div>
             <textarea
               rows={3}
               name="description"
@@ -631,7 +594,7 @@ export default function ProjectList() {
             </div>
             <div>
               <label style={{ display: 'block', fontSize: '0.8rem', fontWeight: 700, color: '#334155', marginBottom: '0.25rem' }}>
-                Allocated Budget ($)
+                Allocated Budget (₹)
               </label>
               <input
                 type="number"
@@ -657,7 +620,7 @@ export default function ProjectList() {
             />
           </div>
 
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem' }}>
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr', gap: '1rem' }}>
             <div>
               <label style={{ display: 'block', fontSize: '0.8rem', fontWeight: 700, color: '#334155', marginBottom: '0.25rem' }}>
                 Target Completion Date
@@ -666,18 +629,6 @@ export default function ProjectList() {
                 type="date"
                 name="endDate"
                 value={formData.endDate}
-                onChange={handleInputChange}
-                style={{ width: '100%', padding: '0.6rem', borderRadius: '6px', border: '1px solid #cbd5e1', fontSize: '0.875rem' }}
-              />
-            </div>
-            <div>
-              <label style={{ display: 'block', fontSize: '0.8rem', fontWeight: 700, color: '#334155', marginBottom: '0.25rem' }}>
-                GPS Radius (Meters)
-              </label>
-              <input
-                type="number"
-                name="radiusMeters"
-                value={formData.radiusMeters}
                 onChange={handleInputChange}
                 style={{ width: '100%', padding: '0.6rem', borderRadius: '6px', border: '1px solid #cbd5e1', fontSize: '0.875rem' }}
               />

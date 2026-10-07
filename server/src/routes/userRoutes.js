@@ -1,4 +1,4 @@
-const express = require('express');
+﻿const express = require('express');
 const router = express.Router();
 const userController = require('../controllers/userController');
 const { protect } = require('../middleware/authMiddleware');
@@ -12,4 +12,7 @@ router.post('/invite', protect, userController.inviteUser);
 // Setup password / Reset password
 router.post('/setup-password', userController.setupPassword);
 
+router.post('/verify-email', userController.verifyEmail);
+
 module.exports = router;
+

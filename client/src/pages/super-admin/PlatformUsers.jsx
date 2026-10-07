@@ -13,7 +13,7 @@ export default function PlatformUsers() {
   useEffect(() => {
     const fetchUsers = async () => {
       try {
-        const res = await fetch('http://localhost:5000/api/users', {
+        const res = await fetch('/api/users', {
           headers: { Authorization: `Bearer ${token}` }
         });
         const data = await res.json();

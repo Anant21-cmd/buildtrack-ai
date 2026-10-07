@@ -11,7 +11,7 @@ export const ProgressProvider = ({ children }) => {
     try {
       setLoading(true);
       const token = localStorage.getItem('buildtrack_token');
-      const res = await fetch('http://localhost:5000/api/progress', {
+      const res = await fetch('/api/progress', {
         headers: { Authorization: `Bearer ${token}` }
       });
       if (res.ok) {
@@ -28,7 +28,7 @@ export const ProgressProvider = ({ children }) => {
   const addDPR = async (dpr) => {
     try {
       const token = localStorage.getItem('buildtrack_token');
-      const res = await fetch('http://localhost:5000/api/progress', {
+      const res = await fetch('/api/progress', {
         method: 'POST',
         headers: { 
           'Content-Type': 'application/json',

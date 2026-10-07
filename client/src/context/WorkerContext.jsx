@@ -38,7 +38,7 @@ export function WorkerProvider({ children }) {
   const fetchWorkers = useCallback(async () => {
     if (!token || !currentUser?.companyId) return;
     try {
-      const res = await fetch('http://localhost:5000/api/workers', {
+      const res = await fetch('/api/workers', {
         headers: { Authorization: `Bearer ${token}` }
       });
       const data = await res.json();
@@ -53,7 +53,7 @@ export function WorkerProvider({ children }) {
   }, [currentUser, fetchWorkers]);
 
   const addWorker = async (workerData) => {
-    const res = await fetch('http://localhost:5000/api/workers', {
+    const res = await fetch('/api/workers', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
       body: JSON.stringify(workerData)
@@ -65,7 +65,7 @@ export function WorkerProvider({ children }) {
   };
 
   const updateWorker = async (id, updatedData) => {
-    const res = await fetch(`http://localhost:5000/api/workers/${id}`, {
+    const res = await fetch(`/api/workers/${id}`, {
       method: 'PUT',
       headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
       body: JSON.stringify(updatedData)

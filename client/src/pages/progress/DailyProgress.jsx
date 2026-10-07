@@ -43,7 +43,7 @@ const DailyProgress = () => {
         const fileData = new FormData();
         files.forEach(f => fileData.append('media', f));
 
-        const uploadRes = await fetch('http://localhost:5000/api/upload', {
+        const uploadRes = await fetch('/api/upload', {
           method: 'POST',
           body: fileData
         });

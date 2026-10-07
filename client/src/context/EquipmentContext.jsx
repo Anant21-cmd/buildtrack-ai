@@ -11,7 +11,7 @@ export const EquipmentProvider = ({ children }) => {
   const fetchEquipment = useCallback(async () => {
     if (!token || !currentUser?.companyId) return;
     try {
-      const res = await fetch('http://localhost:5000/api/equipment', {
+      const res = await fetch('/api/equipment', {
         headers: { Authorization: `Bearer ${token}` }
       });
       const data = await res.json();
@@ -27,7 +27,7 @@ export const EquipmentProvider = ({ children }) => {
 
 
   const addEquipment = async (eq) => {
-    const res = await fetch('http://localhost:5000/api/equipment', {
+    const res = await fetch('/api/equipment', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
       body: JSON.stringify(eq)
@@ -36,7 +36,7 @@ export const EquipmentProvider = ({ children }) => {
   };
 
   const updateEquipmentStatus = async (id, status, projectId = null) => {
-    const res = await fetch(`http://localhost:5000/api/equipment/${id}`, {
+    const res = await fetch(`/api/equipment/${id}`, {
       method: 'PUT',
       headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
       body: JSON.stringify({ status, projectId: status === 'In Use' ? projectId : undefined })

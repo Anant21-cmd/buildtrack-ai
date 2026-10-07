@@ -11,7 +11,7 @@ export function CompanyProvider({ children }) {
   const fetchCompanies = useCallback(async () => {
     if (!token || currentUser?.role !== ROLES.SUPER_ADMIN) return;
     try {
-      const res = await fetch('http://localhost:5000/api/companies', {
+      const res = await fetch('/api/companies', {
         headers: { Authorization: `Bearer ${token}` }
       });
       const data = await res.json();
@@ -24,7 +24,7 @@ export function CompanyProvider({ children }) {
   const fetchAuditLogs = useCallback(async () => {
     if (!token || currentUser?.role !== ROLES.SUPER_ADMIN) return;
     try {
-      const res = await fetch('http://localhost:5000/api/companies/audit-logs', {
+      const res = await fetch('/api/companies/audit-logs', {
         headers: { Authorization: `Bearer ${token}` }
       });
       const data = await res.json();
@@ -43,7 +43,7 @@ export function CompanyProvider({ children }) {
 
   // Register a new company (Public)
   const registerCompany = async (data) => {
-    const res = await fetch('http://localhost:5000/api/companies/register', {
+    const res = await fetch('/api/companies/register', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(data)
@@ -55,7 +55,7 @@ export function CompanyProvider({ children }) {
 
   // Super Admin approves company
   const approveCompany = async (companyId) => {
-    const res = await fetch(`http://localhost:5000/api/companies/${companyId}/approve`, {
+    const res = await fetch(`/api/companies/${companyId}/approve`, {
       method: 'PUT',
       headers: { Authorization: `Bearer ${token}` }
     });
@@ -69,7 +69,7 @@ export function CompanyProvider({ children }) {
 
   // Super Admin rejects company
   const rejectCompany = async (companyId, reason) => {
-    const res = await fetch(`http://localhost:5000/api/companies/${companyId}/reject`, {
+    const res = await fetch(`/api/companies/${companyId}/reject`, {
       method: 'PUT',
       headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
       body: JSON.stringify({ reason })

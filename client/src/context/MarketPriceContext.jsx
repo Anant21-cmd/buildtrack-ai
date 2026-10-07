@@ -12,7 +12,7 @@ export function MarketPriceProvider({ children }) {
     if (!token) return;
     try {
       setLoading(true);
-      const res = await fetch(`http://localhost:5000/api/market-prices`, {
+      const res = await fetch(`/api/market-prices`, {
         headers: { Authorization: `Bearer ${token}` }
       });
       const data = await res.json();

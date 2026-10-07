@@ -48,7 +48,7 @@ export function AuthProvider({ children }) {
   // Login handler connected to Express Backend
   const login = async (email, password, rememberMe) => {
     try {
-      const response = await fetch('http://localhost:5000/api/auth/login', {
+      const response = await fetch('/api/auth/login', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ email, password, rememberMe })
@@ -75,7 +75,7 @@ export function AuthProvider({ children }) {
 
   const verifyOtp = async (email, code) => {
     try {
-      const response = await fetch('http://localhost:5000/api/auth/verify-otp', {
+      const response = await fetch('/api/auth/verify-otp', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ email, code })
@@ -98,7 +98,7 @@ export function AuthProvider({ children }) {
 
   const loginWithGoogle = async (credential) => {
     try {
-      const response = await fetch('http://localhost:5000/api/auth/google', {
+      const response = await fetch('/api/auth/google', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ credential })

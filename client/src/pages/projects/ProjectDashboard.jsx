@@ -68,7 +68,7 @@ export default function ProjectDashboard() {
     e.preventDefault();
     setIsInviting(true);
     try {
-      const res = await fetch('http://localhost:5000/api/users/invite', {
+      const res = await fetch('/api/users/invite', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -97,7 +97,7 @@ export default function ProjectDashboard() {
     setIsInviting(true);
     try {
       // 1. Hit the real database API to create the user and send verification email
-      const res = await fetch('http://localhost:5000/api/users/invite', {
+      const res = await fetch('/api/users/invite', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',

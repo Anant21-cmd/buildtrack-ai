@@ -1,4 +1,4 @@
-import React from 'react';
+﻿import React from 'react';
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import { AuthProvider, useAuth, ROLES } from './context/AuthContext';
 import { CompanyProvider } from './context/CompanyContext';
@@ -50,6 +50,7 @@ import NotificationList from './pages/notifications/NotificationList';
 import CompanySettings from './pages/settings/CompanySettings';
 import Login from './pages/auth/Login';
 import SetupAccount from './pages/auth/SetupAccount';
+import VerifyEmail from './pages/auth/VerifyEmail';
 import Unauthorized from './pages/auth/Unauthorized';
 
 class ErrorBoundary extends React.Component {
@@ -189,5 +190,6 @@ export default function App() {
     </ErrorBoundary>
   );
 }
+
 
 

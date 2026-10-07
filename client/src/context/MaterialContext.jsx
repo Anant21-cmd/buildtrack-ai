@@ -30,7 +30,7 @@ export function MaterialProvider({ children }) {
   const fetchMaterials = useCallback(async () => {
     if (!token || !currentUser?.companyId) return;
     try {
-      const res = await fetch('http://localhost:5000/api/materials', {
+      const res = await fetch('/api/materials', {
         headers: { Authorization: `Bearer ${token}` }
       });
       const data = await res.json();
@@ -45,7 +45,7 @@ export function MaterialProvider({ children }) {
   }, [currentUser, fetchMaterials]);
 
   const addMaterial = async (materialData) => {
-    const res = await fetch('http://localhost:5000/api/materials', {
+    const res = await fetch('/api/materials', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
       body: JSON.stringify(materialData)
@@ -57,7 +57,7 @@ export function MaterialProvider({ children }) {
   };
 
   const updateMaterial = async (id, updatedData) => {
-    const res = await fetch(`http://localhost:5000/api/materials/${id}`, {
+    const res = await fetch(`/api/materials/${id}`, {
       method: 'PUT',
       headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
       body: JSON.stringify(updatedData)

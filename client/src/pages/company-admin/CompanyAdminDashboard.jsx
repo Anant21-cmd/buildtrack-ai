@@ -22,29 +22,42 @@ import Button from '../../components/common/Button';
 import Badge from '../../components/common/Badge';
 import { useAuth } from '../../context/AuthContext';
 import { useProjects } from '../../context/ProjectContext';
-import { useWorkers } from '../../context/WorkerContext';
 import { useMaterials } from '../../context/MaterialContext';
 import AnalyticsChart from '../../components/dashboard/AnalyticsChart';
 import { useRecentlyAccessed } from '../../hooks/useRecentlyAccessed';
 
 export default function CompanyAdminDashboard() {
-  const { currentUser } = useAuth();
+  const { currentUser, token } = useAuth();
   const recentPages = useRecentlyAccessed();
 
   const { projects = [] } = useProjects();
-  const { workers = [] } = useWorkers();
   const { materials = [] } = useMaterials();
 
   const [selectedProjectId, setSelectedProjectId] = useState('ALL');
+  const [teamCount, setTeamCount] = useState(0);
+
+  // Fetch team members count
+  React.useEffect(() => {
+    const fetchTeam = async () => {
+      try {
+        const res = await fetch('/api/users', {
+          headers: { Authorization: `Bearer ${token}` }
+        });
+        if (res.ok) {
+          const data = await res.json();
+          setTeamCount(data.length);
+        }
+      } catch (err) {
+        console.error('Failed to fetch team', err);
+      }
+    };
+    if (token) fetchTeam();
+  }, [token]);
 
   // Filter data based on selected project
   const filteredProjects = selectedProjectId === 'ALL' 
     ? projects 
     : projects.filter(p => p.id === selectedProjectId);
-
-  const filteredWorkers = selectedProjectId === 'ALL'
-    ? workers
-    : workers.filter(w => w.assignedProjectId === selectedProjectId);
 
   // Financial summary calculations
   const totalBudget = filteredProjects.reduce((acc, p) => acc + (p.budget || 0), 0);
@@ -55,6 +68,13 @@ export default function CompanyAdminDashboard() {
   // Since we don't have MaterialRequests context fully integrated, we use an empty array
   const materialAlerts = [];
   const recentActivities = [];
+
+  const chartData = projects.length > 0 
+    ? projects.map(p => ({
+        name: p.code || p.name.substring(0, 10),
+        spent: p.spent || 0
+      }))
+    : [{ name: 'No Projects', spent: 0 }];
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: '2rem' }}>
@@ -109,9 +129,9 @@ export default function CompanyAdminDashboard() {
               New Project
             </Button>
           </Link>
-          <Link to="/workers">
+          <Link to="/team-management">
             <Button variant="outline" size="sm" icon={Users} style={{ color: '#ffffff', borderColor: '#475569' }}>
-              Manage Workers
+              Manage Team
             </Button>
           </Link>
           <Link to="/finance">
@@ -141,9 +161,9 @@ export default function CompanyAdminDashboard() {
           trendPositive={true}
         />
         <Card
-          title={selectedProjectId === 'ALL' ? "Total Workforce" : "Project Workforce"}
-          value={filteredWorkers.length.toString()}
-          subtitle="Registered Workers"
+          title="Core Team Members"
+          value={teamCount.toString()}
+          subtitle="System Users"
           icon={Users}
           iconBg="#ecfdf5"
           iconColor="#059669"
@@ -173,19 +193,13 @@ export default function CompanyAdminDashboard() {
       </div>
 
       {/* Analytics Chart Widget */}
-      <Card title="Company Budget & Expenditure Timeline" style={{ padding: '1rem' }}>
+      <Card title="Project Expenditure Overview" style={{ padding: '1rem' }}>
         <AnalyticsChart 
-          title="Monthly Expenditure (in Thousands ₹)"
-          data={[
-            { name: 'Jan', value: 450 },
-            { name: 'Feb', value: 800 },
-            { name: 'Mar', value: 1200 },
-            { name: 'Apr', value: 1500 },
-            { name: 'May', value: 1900 },
-            { name: 'Jun', value: 2400 },
-          ]}
-          dataKey="value"
-          color="#3b82f6"
+          title="Expenditure by Project (in ₹)"
+          data={chartData}
+          dataKey="spent"
+          type="bar"
+          color="#10b981"
         />
       </Card>
 
@@ -224,9 +238,16 @@ export default function CompanyAdminDashboard() {
             </div>
 
             <div style={{ display: 'flex', flexDirection: 'column', gap: '1.25rem' }}>
-              {filteredProjects.map((proj) => {
-                const spentPercent = Math.round((proj.spent / proj.budget) * 100);
-                return (
+              {filteredProjects.length === 0 ? (
+                <div style={{ textAlign: 'center', padding: '2rem 1rem', border: '1px dashed #cbd5e1', borderRadius: '8px', backgroundColor: '#f8fafc' }}>
+                  <Briefcase size={32} color="#94a3b8" style={{ margin: '0 auto 0.5rem' }} />
+                  <p style={{ fontSize: '0.9rem', color: '#64748b', fontWeight: 500 }}>No active projects found.</p>
+                  <Link to="/projects" style={{ display: 'inline-block', marginTop: '0.75rem', fontSize: '0.85rem', color: '#1e3a8a', fontWeight: 600, textDecoration: 'none' }}>+ Create Your First Project</Link>
+                </div>
+              ) : (
+                filteredProjects.map((proj) => {
+                  const spentPercent = Math.round((proj.spent / proj.budget) * 100);
+                  return (
                   <div
                     key={proj.id}
                     style={{
@@ -271,7 +292,8 @@ export default function CompanyAdminDashboard() {
                     </div>
                   </div>
                 );
-              })}
+              })
+              )}
             </div>
           </div>
 
@@ -300,7 +322,14 @@ export default function CompanyAdminDashboard() {
             </div>
 
             <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
-              {materialAlerts.map((req) => (
+              {materialAlerts.length === 0 ? (
+                <div style={{ textAlign: 'center', padding: '2rem 1rem', border: '1px dashed #cbd5e1', borderRadius: '8px', backgroundColor: '#f8fafc' }}>
+                  <ShieldAlert size={32} color="#94a3b8" style={{ margin: '0 auto 0.5rem' }} />
+                  <p style={{ fontSize: '0.9rem', color: '#64748b', fontWeight: 500 }}>No active material alerts.</p>
+                  <p style={{ fontSize: '0.8rem', color: '#94a3b8', marginTop: '0.25rem' }}>Excess requests will appear here automatically.</p>
+                </div>
+              ) : (
+              materialAlerts.map((req) => (
                 <div
                   key={req.id}
                   style={{
@@ -356,7 +385,8 @@ export default function CompanyAdminDashboard() {
                     </div>
                   )}
                 </div>
-              ))}
+              ))
+              )}
             </div>
           </div>
         </div>

@@ -19,7 +19,7 @@ export function ProjectProvider({ children }) {
   const fetchProjects = useCallback(async () => {
     if (!token || !currentUser?.companyId) return;
     try {
-      const res = await fetch('http://localhost:5000/api/projects', {
+      const res = await fetch('/api/projects', {
         headers: { Authorization: `Bearer ${token}` }
       });
       const data = await res.json();
@@ -34,7 +34,7 @@ export function ProjectProvider({ children }) {
   }, [currentUser, fetchProjects]);
 
   const addProject = async (projectData) => {
-    const res = await fetch('http://localhost:5000/api/projects', {
+    const res = await fetch('/api/projects', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
       body: JSON.stringify(projectData)
@@ -46,7 +46,7 @@ export function ProjectProvider({ children }) {
   };
 
   const updateProject = async (id, updatedData) => {
-    const res = await fetch(`http://localhost:5000/api/projects/${id}`, {
+    const res = await fetch(`/api/projects/${id}`, {
       method: 'PUT',
       headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
       body: JSON.stringify(updatedData)

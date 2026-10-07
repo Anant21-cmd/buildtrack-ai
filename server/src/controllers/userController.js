@@ -74,7 +74,7 @@ exports.inviteUser = async (req, res) => {
     const emailSent = await sendEmail({
       to: email,
       subject: `Invitation to Kreo - ${companyName}`,
-      text: "Hello ${name},\n\nYou have been invited by ${companyName} to join Kreo as a ${role.replace('_', ' ')}.\n\nPlease click the link below to verify your email and set up your secure password:\n\n${setupLink}\n\nThis link will expire in 24 hours.\n\nAlternatively, you can sign in using Google SSO with this email address."
+      text: `Hello ${name},\n\nYou have been invited by ${companyName} to join Kreo as a ${role.replace('_', ' ')}.\n\nPlease click the link below to verify your email and set up your secure password:\n\n${setupLink}\n\nThis link will expire in 24 hours.\n\nAlternatively, you can sign in using Google SSO with this email address.`
     });
 
     const { password, ...safeUser } = newUser;
@@ -127,5 +127,38 @@ exports.setupPassword = async (req, res) => {
   } catch (error) {
     console.error('Error setting up password:', error);
     res.status(500).json({ success: false, message: 'Server Error' });
+  }
+};
+
+
+exports.verifyEmail = async (req, res) => {
+  try {
+    const { email, token } = req.body;
+    
+    if (!email || !token) {
+      return res.status(400).json({ success: false, message: 'Missing required fields' });
+    }
+
+    const user = await prisma.user.findUnique({ where: { email } });
+    if (!user) {
+      return res.status(404).json({ success: false, message: 'User not found' });
+    }
+
+    if (user.verificationCode !== token) {
+      return res.status(400).json({ success: false, message: 'Invalid setup token' });
+    }
+
+    await prisma.user.update({
+      where: { email },
+      data: {
+        isEmailVerified: true,
+        verificationCode: null,
+      }
+    });
+
+    res.status(200).json({ success: true, message: 'Email successfully verified' });
+  } catch (error) {
+    console.error('Verify email error:', error);
+    res.status(500).json({ success: false, message: 'Server error' });
   }
 };

@@ -1,7 +1,9 @@
-const prisma = require('../config/prisma');
+﻿const prisma = require('../config/prisma');
 const bcrypt = require('bcryptjs');
+const { sendApprovalEmail, sendRejectionEmail, sendVerificationEmail } = require('../utils/emailService');
 
 // Public Route: Register a new company and its initial Admin
+const crypto = require('crypto');
 exports.registerCompany = async (req, res, next) => {
   try {
     const { companyName, regNumber, ownerName, email, phone, address, password, documentData } = req.body;
@@ -17,6 +19,7 @@ exports.registerCompany = async (req, res, next) => {
     if (existingUser) return res.status(400).json({ message: 'Email already used for a user account' });
 
     const hashedPassword = await bcrypt.hash(password, 10);
+      const verificationToken = crypto.randomBytes(32).toString('hex');
 
     // Create Company and User in a transaction
     const result = await prisma.$transaction(async (tx) => {
@@ -38,6 +41,7 @@ exports.registerCompany = async (req, res, next) => {
           name: ownerName,
           email,
           password: hashedPassword,
+            verificationCode: verificationToken,
           role: 'COMPANY_ADMIN',
           companyId: newCompany.id,
           avatar: ownerName.substring(0, 2).toUpperCase()
@@ -49,6 +53,7 @@ exports.registerCompany = async (req, res, next) => {
         data: {
           actorName: ownerName,
           actorRole: 'COMPANY_ADMIN',
+            
           action: 'COMPANY_REGISTERED',
           entity: 'Company',
           entityId: newCompany.id,
@@ -58,9 +63,12 @@ exports.registerCompany = async (req, res, next) => {
       });
 
       return newCompany;
-    });
+    }, { timeout: 20000 });
 
-    res.status(201).json({ message: 'Registration submitted for review', company: result });
+    const verifyLink = `http://localhost:3000/verify-email?token=${verificationToken}&email=${encodeURIComponent(email)}`;
+      await sendVerificationEmail(email, companyName, verifyLink);
+
+      res.status(201).json({ message: 'Registration submitted for review', company: result });
   } catch (error) {
     next(error);
   }
@@ -101,6 +109,9 @@ exports.approveCompany = async (req, res, next) => {
       }
     });
 
+    // Send Email Notification
+    await sendApprovalEmail(company.email, company.name);
+
     res.status(200).json({ message: 'Company approved', company });
   } catch (error) {
     next(error);
@@ -131,6 +142,9 @@ exports.rejectCompany = async (req, res, next) => {
       }
     });
 
+    // Send Email Notification
+    await sendRejectionEmail(company.email, company.name, reason);
+
     res.status(200).json({ message: 'Company rejected', company });
   } catch (error) {
     next(error);
@@ -146,4 +160,7 @@ exports.getAuditLogs = async (req, res, next) => {
     next(error);
   }
 };
+
+
+
 

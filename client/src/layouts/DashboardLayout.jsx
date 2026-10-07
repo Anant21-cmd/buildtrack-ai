@@ -1,4 +1,4 @@
-﻿import React, { useState } from 'react';
+import React, { useState } from 'react';
 import { Outlet } from 'react-router-dom';
 import Sidebar from '../components/layout/Sidebar';
 import Navbar from '../components/layout/Navbar';
@@ -26,8 +26,8 @@ export default function DashboardLayout({ children }) {
       <div style={{ flex: 1, display: 'flex', flexDirection: 'column', minWidth: 0 }}>
         <Navbar onMenuToggle={() => setIsMobileOpen(!isMobileOpen)} />
 
-        <main style={{ flex: 1, padding: '1.75rem', overflowY: 'auto' }}>
-          <div style={{ maxWidth: '1400px', margin: '0 auto', width: '100%' }}>
+        <main style={{ flex: 1, padding: '2rem', overflowY: 'auto' }}>
+          <div style={{ maxWidth: '1800px', margin: '0 auto', width: '100%' }}>
             {children || <Outlet />}
           </div>
         </main>

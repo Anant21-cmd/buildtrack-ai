@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+﻿import React, { useState } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import { HardHat, Building2, User, Mail, Phone, MapPin, FileCheck, CheckCircle2, ArrowRight } from 'lucide-react';
 import Button from '../../components/common/Button';
@@ -62,11 +62,6 @@ export default function CompanyRegister() {
     } catch (error) {
       alert(error.message);
     }
-  };
-
-  const handleGoToSuperAdmin = () => {
-    switchRole(ROLES.SUPER_ADMIN);
-    navigate('/super-admin/pending-approvals');
   };
 
   return (
@@ -315,28 +310,6 @@ export default function CompanyRegister() {
                 </p>
               </div>
 
-              {/* Demo Shortcut Box */}
-              <div
-                style={{
-                  backgroundColor: '#f1f5f9',
-                  border: '1px dashed #94a3b8',
-                  borderRadius: '8px',
-                  padding: '1.25rem',
-                  width: '100%',
-                  textAlign: 'left'
-                }}
-              >
-                <h4 style={{ fontSize: '0.9rem', fontWeight: 700, color: '#0f172a', marginBottom: '0.35rem' }}>
-                  ⚡ Evaluator / Demo Action Shortcut:
-                </h4>
-                <p style={{ fontSize: '0.8rem', color: '#64748b', marginBottom: '0.75rem' }}>
-                  You can immediately jump into the Super Admin console to review, approve, or reject this new company application.
-                </p>
-                <Button variant="primary" size="sm" icon={ArrowRight} onClick={handleGoToSuperAdmin}>
-                  Review in Super Admin Approvals Queue
-                </Button>
-              </div>
-
               <Link to="/">
                 <Button variant="outline" size="sm">
                   Back to Dashboard
@@ -349,4 +322,6 @@ export default function CompanyRegister() {
     </div>
   );
 }
+
+
 

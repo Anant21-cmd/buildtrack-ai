@@ -28,7 +28,7 @@ export function VendorProvider({ children }) {
   const fetchReceivings = useCallback(async () => {
     if (!token || !currentUser?.companyId) return;
     try {
-      const res = await fetch('http://localhost:5000/api/purchase-orders/receipts/all', {
+      const res = await fetch('/api/purchase-orders/receipts/all', {
         headers: { Authorization: `Bearer ${token}` }
       });
       const data = await res.json();
@@ -45,7 +45,7 @@ export function VendorProvider({ children }) {
   }, [currentUser, fetchReceivings]);
 
   const receiveMaterial = async (data) => {
-    const res = await fetch(`http://localhost:5000/api/purchase-orders/${data.poId}/receive`, {
+    const res = await fetch(`/api/purchase-orders/${data.poId}/receive`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
       body: JSON.stringify(data)
@@ -60,7 +60,7 @@ export function VendorProvider({ children }) {
   const fetchVendors = useCallback(async () => {
     if (!token || !currentUser?.companyId) return;
     try {
-      const res = await fetch('http://localhost:5000/api/vendors', {
+      const res = await fetch('/api/vendors', {
         headers: { Authorization: `Bearer ${token}` }
       });
       const data = await res.json();
@@ -73,7 +73,7 @@ export function VendorProvider({ children }) {
   const fetchPurchaseOrders = useCallback(async () => {
     if (!token || !currentUser?.companyId) return;
     try {
-      const res = await fetch('http://localhost:5000/api/purchase-orders', {
+      const res = await fetch('/api/purchase-orders', {
         headers: { Authorization: `Bearer ${token}` }
       });
       const data = await res.json();
@@ -91,7 +91,7 @@ export function VendorProvider({ children }) {
   }, [currentUser, fetchVendors, fetchPurchaseOrders]);
 
   const addVendor = async (vendorData) => {
-    const res = await fetch('http://localhost:5000/api/vendors', {
+    const res = await fetch('/api/vendors', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
       body: JSON.stringify(vendorData)
@@ -103,7 +103,7 @@ export function VendorProvider({ children }) {
   };
 
   const updateVendor = async (id, updatedData) => {
-    const res = await fetch(`http://localhost:5000/api/vendors/${id}`, {
+    const res = await fetch(`/api/vendors/${id}`, {
       method: 'PUT',
       headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
       body: JSON.stringify(updatedData)
@@ -114,7 +114,7 @@ export function VendorProvider({ children }) {
   const getVendor = (id) => vendors.find((v) => v.id === id);
 
   const addPurchaseOrder = async (poData) => {
-    const res = await fetch('http://localhost:5000/api/purchase-orders', {
+    const res = await fetch('/api/purchase-orders', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
       body: JSON.stringify(poData)
@@ -126,7 +126,7 @@ export function VendorProvider({ children }) {
   };
 
   const updatePOStatus = async (id, status) => {
-    const res = await fetch(`http://localhost:5000/api/purchase-orders/${id}`, {
+    const res = await fetch(`/api/purchase-orders/${id}`, {
       method: 'PUT',
       headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
       body: JSON.stringify({ status })

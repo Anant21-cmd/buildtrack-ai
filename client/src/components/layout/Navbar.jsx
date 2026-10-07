@@ -51,7 +51,7 @@ export default function Navbar({ onMenuToggle }) {
             Organization
           </span>
           <h2 style={{ fontSize: '0.95rem', fontWeight: 700, color: '#0f172a', lineHeight: 1.1 }}>
-            {currentUser?.company || 'BuildTrack Platform'}
+            {currentUser?.company?.name || 'Kreo Platform HQ'}
           </h2>
         </div>
       </div>
@@ -136,4 +136,5 @@ export default function Navbar({ onMenuToggle }) {
     </header>
   );
 }
+
 

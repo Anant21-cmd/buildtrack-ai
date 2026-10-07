@@ -22,7 +22,7 @@ export function MaterialRequestProvider({ children }) {
   const fetchRequirements = useCallback(async () => {
     if (!token || !currentUser?.companyId) return;
     try {
-      const res = await fetch(`http://localhost:5000/api/material-requests/requirements`, {
+      const res = await fetch(`/api/material-requests/requirements`, {
         headers: { Authorization: `Bearer ${token}` }
       });
       const data = await res.json();
@@ -35,7 +35,7 @@ export function MaterialRequestProvider({ children }) {
   const fetchRequests = useCallback(async () => {
     if (!token || !currentUser?.companyId) return;
     try {
-      const res = await fetch(`http://localhost:5000/api/material-requests`, {
+      const res = await fetch(`/api/material-requests`, {
         headers: { Authorization: `Bearer ${token}` }
       });
       const data = await res.json();
@@ -80,7 +80,7 @@ export function MaterialRequestProvider({ children }) {
     requestedBy
   }) => {
     try {
-      const res = await fetch(`http://localhost:5000/api/material-requests`, {
+      const res = await fetch(`/api/material-requests`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
         body: JSON.stringify({ projectId, materialId, qty: Number(requestedQuantity), purpose, requestedBy })
@@ -99,7 +99,7 @@ export function MaterialRequestProvider({ children }) {
 
   const approveStandardRequest = async (requestId, reviewerName) => {
     try {
-      const res = await fetch(`http://localhost:5000/api/material-requests/${requestId}/approve`, {
+      const res = await fetch(`/api/material-requests/${requestId}/approve`, {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
         body: JSON.stringify({ reviewerName })
@@ -114,7 +114,7 @@ export function MaterialRequestProvider({ children }) {
 
   const approveExcessTrap = async (requestId, reviewerName, justificationReason) => {
     try {
-      const res = await fetch(`http://localhost:5000/api/material-requests/${requestId}/approve`, {
+      const res = await fetch(`/api/material-requests/${requestId}/approve`, {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
         body: JSON.stringify({ reviewerName, justificationReason })
@@ -129,7 +129,7 @@ export function MaterialRequestProvider({ children }) {
 
   const rejectRequest = async (requestId, reviewerName, reason) => {
     try {
-      const res = await fetch(`http://localhost:5000/api/material-requests/${requestId}/reject`, {
+      const res = await fetch(`/api/material-requests/${requestId}/reject`, {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
         body: JSON.stringify({ reviewerName, reason })
@@ -144,7 +144,7 @@ export function MaterialRequestProvider({ children }) {
 
   const issueMaterial = async (requestId, storeManagerName) => {
     try {
-      const res = await fetch(`http://localhost:5000/api/material-requests/${requestId}/issue`, {
+      const res = await fetch(`/api/material-requests/${requestId}/issue`, {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
         body: JSON.stringify({ storeManagerName })
