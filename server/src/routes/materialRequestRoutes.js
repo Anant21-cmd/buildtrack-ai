@@ -8,8 +8,6 @@ router.use(protect);
 router.get('/requirements', controller.getRequirements);
 router.post('/', controller.createMaterialRequest);
 router.get('/', controller.getCompanyMaterialRequests);
-router.put('/:id/approve', controller.approveRequest);
-router.put('/:id/reject', controller.rejectRequest);
-router.put('/:id/issue', controller.issueMaterial);
+router.put('/:id/status', controller.updateStatus);
 
 module.exports = router;

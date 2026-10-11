@@ -103,9 +103,11 @@ exports.googleLogin = async (req, res, next) => {
     const payload = ticket.getPayload();
     const email = payload.email;
 
+    console.log(`Google SSO Attempt for email: ${email}`);
+
     // Check if user exists in database
-    const user = await prisma.user.findUnique({
-      where: { email },
+    const user = await prisma.user.findFirst({
+      where: { email: { equals: email, mode: 'insensitive' } },
       include: { company: true }
     });
 

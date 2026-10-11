@@ -1,4 +1,4 @@
-﻿import React from 'react';
+import React from 'react';
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import { AuthProvider, useAuth, ROLES } from './context/AuthContext';
 import { CompanyProvider } from './context/CompanyContext';
@@ -13,7 +13,11 @@ import { EquipmentProvider } from './context/EquipmentContext';
 import { TaskProvider } from './context/TaskContext';
 import { ProgressProvider } from './context/ProgressContext';
 import { FinanceProvider } from './context/FinanceContext';
+import { NotificationProvider } from './context/NotificationContext';
 import { MarketPriceProvider } from './context/MarketPriceContext';
+import { ReportProvider } from './context/ReportContext';
+import { InspectionProvider } from './context/InspectionContext';
+import { SafetyProvider } from './context/SafetyContext';
 import ProtectedRoute from './components/common/ProtectedRoute';
 import DashboardLayout from './layouts/DashboardLayout';
 import ComponentShowcase from './pages/common/ComponentShowcase';
@@ -24,10 +28,22 @@ import SuperAdminDashboard from './pages/super-admin/SuperAdminDashboard';
 import CompanyAdminDashboard from './pages/company-admin/CompanyAdminDashboard';
 import TeamManagement from './pages/company-admin/TeamManagement';
 import SiteEngineerDashboard from './pages/site-engineer/SiteEngineerDashboard';
-import StoreManagerDashboard from './pages/store-manager/StoreManagerDashboard';
+import DailyReports from './pages/site-engineer/DailyReports';
+import QualityInspection from './pages/site-engineer/QualityInspection';
+import SafetyMonitoring from './pages/site-engineer/SafetyMonitoring';
+import PhotosVideos from './pages/site-engineer/PhotosVideos';
+import ContractorsWorkers from './pages/site-engineer/ContractorsWorkers';
+
 import ContractorDashboard from './pages/contractor/ContractorDashboard';
+import ContractorProjects from './pages/contractor/ContractorProjects';
+import ContractorWorkers from './pages/contractor/ContractorWorkers';
+import ContractorTasks from './pages/contractor/ContractorTasks';
+import ContractorMaterials from './pages/contractor/ContractorMaterials';
+import ContractorAttendance from './pages/contractor/ContractorAttendance';
+import ContractorBilling from './pages/contractor/ContractorBilling';
 import ClientDashboard from './pages/client/ClientDashboard';
 import ClientMilestones from './pages/client/ClientMilestones';
+import StoreManagerDashboard from './pages/store-manager/StoreManagerDashboard';
 import CompanyManagement from './pages/super-admin/CompanyManagement';
 import AuditLogsView from './pages/super-admin/AuditLogsView';
 import CompanyRegister from './pages/auth/CompanyRegister';
@@ -87,9 +103,10 @@ function RoleBasedHome() {
   if (currentUser.role === ROLES.SUPER_ADMIN || currentUser.role === 'SUPER_ADMIN') return <SuperAdminDashboard />;
   if (currentUser.role === ROLES.COMPANY_ADMIN || currentUser.role === 'COMPANY_ADMIN') return <CompanyAdminDashboard />;
   if (currentUser.role === ROLES.SITE_ENGINEER || currentUser.role === 'SITE_ENGINEER') return <SiteEngineerDashboard />;
-  if (currentUser.role === ROLES.STORE_MANAGER || currentUser.role === 'STORE_MANAGER') return <StoreManagerDashboard />;
+  
   if (currentUser.role === ROLES.CONTRACTOR || currentUser.role === 'CONTRACTOR') return <ContractorDashboard />;
   if (currentUser.role === ROLES.CLIENT || currentUser.role === 'CLIENT') return <ClientDashboard />;
+
 
   return <SuperAdminDashboard />; // Fallback
 }
@@ -110,8 +127,11 @@ export default function App() {
                           <TaskProvider>
                             <ProgressProvider>
                               <FinanceProvider>
+<NotificationProvider>
                                 <MarketPriceProvider>
-                                  <BrowserRouter>
+                                  <SafetyProvider>
+        <InspectionProvider>
+        <ReportProvider><BrowserRouter>
                                     <div className="app-container">
                                       <Routes>
                                         <Route path="/login" element={<Login />} />
@@ -125,9 +145,21 @@ export default function App() {
                                           <Route path="company-admin/dashboard" element={<CompanyAdminDashboard />} />
                                           <Route path="team-management" element={<TeamManagement />} />
                                           <Route path="engineer/dashboard" element={<SiteEngineerDashboard />} />
-                                          <Route path="store/dashboard" element={<StoreManagerDashboard />} />
+                                          <Route path="engineer/daily-reports" element={<DailyReports />} />
+                                          <Route path="engineer/quality" element={<QualityInspection />} />
+                                          <Route path="engineer/safety" element={<SafetyMonitoring />} />
+                                          <Route path="engineer/media" element={<PhotosVideos />} />
+                                          <Route path="engineer/contractors" element={<ContractorsWorkers />} />
+                                          
                                           <Route path="contractor/dashboard" element={<ContractorDashboard />} />
+                                          <Route path="contractor/projects" element={<ContractorProjects />} />
+                                          <Route path="contractor/workers" element={<ContractorWorkers />} />
+                                          <Route path="contractor/attendance" element={<ContractorAttendance />} />
+                                          <Route path="contractor/tasks" element={<ContractorTasks />} />
+                                          <Route path="contractor/materials" element={<ContractorMaterials />} />
+                                          <Route path="contractor/billing" element={<ContractorBilling />} />
                                           <Route path="client/dashboard" element={<ClientDashboard />} />
+                                          <Route path="store-manager/dashboard" element={<StoreManagerDashboard />} />
                                           
                                           <Route path="projects/:id" element={<ProjectDashboard />} />
                                           <Route path="materials/requests" element={<MaterialRequests />} />
@@ -172,9 +204,12 @@ export default function App() {
                                         </Route>
                                       </Routes>
                                     </div>
-                                  </BrowserRouter>
+                                  </BrowserRouter></ReportProvider>
+        </InspectionProvider>
+        </SafetyProvider>
                                 </MarketPriceProvider>
-                              </FinanceProvider>
+                              </NotificationProvider>
+</FinanceProvider>
                             </ProgressProvider>
                           </TaskProvider>
                         </EquipmentProvider>

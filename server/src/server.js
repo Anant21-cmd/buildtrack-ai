@@ -74,6 +74,14 @@ app.use('/api/material-requests', require('./routes/materialRequestRoutes'));
 app.use('/api/users', require('./routes/userRoutes'));
 app.use('/api/market-prices', require('./routes/marketPriceRoutes'));
 app.use('/api/upload', require('./routes/uploadRoutes'));
+app.use('/api/reports', require('./routes/reportRoutes'));
+app.use('/api/inspections', require('./routes/inspectionRoutes'));
+app.use('/api/safety', require('./routes/safetyRoutes'));
+app.use('/api/notifications', require('./routes/notificationRoutes'));
+app.use('/api/whatsapp', require('./routes/whatsappRoutes'));
+
+const marketUpdater = require('./services/marketUpdater');
+marketUpdater.startDailySync();
 
 // 404 Not Found Handler
 app.use((req, res, next) => {
@@ -103,3 +111,5 @@ app.listen(PORT, () => {
   console.log(`=========================================`);
 });
 
+
+// Trigger restart

@@ -41,7 +41,7 @@ exports.getCompanyPurchaseOrders = async (req, res, next) => {
     const pos = await prisma.purchaseOrder.findMany({
       where: { projectId: { in: projectIds } },
       include: { vendor: true, project: true },
-      orderBy: { createdAt: 'desc' }
+      orderBy: { orderDate: 'desc' }
     });
 
     res.status(200).json(pos);

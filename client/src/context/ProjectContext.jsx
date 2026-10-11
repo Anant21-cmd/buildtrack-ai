@@ -17,7 +17,7 @@ export function ProjectProvider({ children }) {
   const { currentUser, token } = useAuth();
 
   const fetchProjects = useCallback(async () => {
-    if (!token || !currentUser?.companyId) return;
+    if (!token || (!currentUser?.companyId && currentUser?.role !== 'SUPER_ADMIN')) return;
     try {
       const res = await fetch('/api/projects', {
         headers: { Authorization: `Bearer ${token}` }
@@ -30,7 +30,7 @@ export function ProjectProvider({ children }) {
   }, [token, currentUser]);
 
   useEffect(() => {
-    if (currentUser?.companyId) fetchProjects();
+    if (currentUser?.companyId || currentUser?.role === 'SUPER_ADMIN') fetchProjects();
   }, [currentUser, fetchProjects]);
 
   const addProject = async (projectData) => {

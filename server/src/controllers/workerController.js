@@ -2,7 +2,7 @@ const prisma = require('../config/prisma');
 
 exports.createWorker = async (req, res, next) => {
   try {
-    const { name, trade, role, badgeId, projectId, assignedProjectId } = req.body;
+    const { name, trade, role, badgeId, projectId, assignedProjectId, phone } = req.body;
 
     if (!req.user.companyId) {
       return res.status(403).json({ message: 'User must belong to a company to add workers' });
@@ -20,10 +20,12 @@ exports.createWorker = async (req, res, next) => {
     const worker = await prisma.worker.create({
       data: {
         name,
+        phone,
         trade: actualTrade,
         badgeId: actualBadgeId,
         companyId: req.user.companyId,
         projectId: actualProjectId,
+        contractorId: req.user.role === 'CONTRACTOR' ? req.user.id : null
       }
     });
 
@@ -53,8 +55,10 @@ exports.getCompanyWorkers = async (req, res, next) => {
       badgeId: w.badgeId,
       status: w.status,
       assignedProjectId: w.projectId,
+      projectId: w.projectId,
+      contractorId: w.contractorId,
       assignedProjectName: w.project ? w.project.name : 'Unassigned Reserve',
-      phone: '+91-XXXXXXXXXX', // mock as DB lacks it
+      phone: w.phone || null,
       contractor: 'Internal', // mock as DB lacks it
       skill: 'General', // mock as DB lacks it
       qrCodeToken: w.badgeId

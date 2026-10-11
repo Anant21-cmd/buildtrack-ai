@@ -35,12 +35,24 @@ exports.createProject = async (req, res, next) => {
 
 exports.getCompanyProjects = async (req, res, next) => {
   try {
-    if (!req.user.companyId) {
-      return res.status(403).json({ message: 'User must belong to a company to view projects' });
+    let whereClause = {};
+    if (req.user.role !== 'SUPER_ADMIN') {
+      if (!req.user.companyId) {
+        return res.status(403).json({ message: 'User must belong to a company to view projects' });
+      }
+      whereClause.companyId = req.user.companyId;
+      if (req.user.role === 'CLIENT') {
+        whereClause.client = req.user.name;
+      }
     }
 
     const projects = await prisma.project.findMany({
-      where: { companyId: req.user.companyId },
+      where: whereClause,
+      include: {
+        dailyProgress: { orderBy: { createdAt: 'desc' } },
+        allocations: { include: { material: true } },
+        tasks: true
+      },
       orderBy: { createdAt: 'desc' }
     });
 
@@ -63,14 +75,50 @@ exports.updateProject = async (req, res, next) => {
       return res.status(403).json({ message: 'Not authorized to update this project' });
     }
 
-    // Convert budget to number if present
-    if (updateData.budget !== undefined) {
-      updateData.budget = Number(updateData.budget);
+    // Sanitize and convert types for Prisma
+    const payload = { ...updateData };
+    if (payload.budget !== undefined && payload.budget !== null && payload.budget !== '') {
+      payload.budget = Number(payload.budget);
     }
+    if (payload.latitude !== undefined && payload.latitude !== null && payload.latitude !== '') {
+      payload.latitude = parseFloat(payload.latitude);
+    }
+    if (payload.longitude !== undefined && payload.longitude !== null && payload.longitude !== '') {
+      payload.longitude = parseFloat(payload.longitude);
+    }
+    if (payload.radiusMeters !== undefined && payload.radiusMeters !== null && payload.radiusMeters !== '') {
+      payload.radiusMeters = parseFloat(payload.radiusMeters);
+    }
+    if (payload.startDate) {
+      payload.startDate = new Date(payload.startDate);
+    }
+    if (payload.endDate) {
+      payload.endDate = new Date(payload.endDate);
+    }
+
+    // Clean relations and read-only fields
+    delete payload.dailyProgress;
+    delete payload.allocations;
+    delete payload.tasks;
+    delete payload.company;
+    delete payload.attendances;
+    delete payload.dailyReports;
+    delete payload.equipment;
+    delete payload.expenses;
+    delete payload.issues;
+    delete payload.materialReqs;
+    delete payload.purchaseOrders;
+    delete payload.qualityInspections;
+    delete payload.safetyReports;
+    delete payload.sitePhotos;
+    delete payload.workers;
+    delete payload.id;
+    delete payload.createdAt;
+    delete payload.updatedAt;
 
     const updatedProject = await prisma.project.update({
       where: { id },
-      data: updateData
+      data: payload
     });
 
     res.status(200).json(updatedProject);

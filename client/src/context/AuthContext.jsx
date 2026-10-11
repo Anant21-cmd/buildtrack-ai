@@ -4,9 +4,9 @@ export const ROLES = {
   SUPER_ADMIN: 'SUPER_ADMIN',
   COMPANY_ADMIN: 'COMPANY_ADMIN',
   SITE_ENGINEER: 'SITE_ENGINEER',
-  STORE_MANAGER: 'STORE_MANAGER',
-  CONTRACTOR: 'CONTRACTOR',
+    CONTRACTOR: 'CONTRACTOR',
   CLIENT: 'CLIENT'
+
 };
 
 export const DEMO_USERS = [
@@ -120,6 +120,63 @@ export function AuthProvider({ children }) {
     }
   };
 
+  // Refresh current user profile from server on boot
+  useEffect(() => {
+    if (token) {
+      fetch('/api/users/profile', {
+        headers: { Authorization: `Bearer ${token}` }
+      })
+        .then(res => res.ok ? res.json() : null)
+        .then(data => {
+          if (data && data.user) {
+            setCurrentUser(prev => ({ ...prev, ...data.user }));
+          }
+        })
+        .catch(err => console.error('Failed to refresh user profile:', err));
+    }
+  }, [token]);
+
+  const updateUserProfile = async (profileData) => {
+    try {
+      const response = await fetch('/api/users/profile', {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`
+        },
+        body: JSON.stringify(profileData)
+      });
+      const data = await response.json();
+      if (!response.ok) {
+        throw new Error(data.message || 'Failed to update profile');
+      }
+      setCurrentUser(data.user);
+      return data.user;
+    } catch (error) {
+      throw error;
+    }
+  };
+
+  const changeUserPassword = async (currentPassword, newPassword) => {
+    try {
+      const response = await fetch('/api/users/change-password', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`
+        },
+        body: JSON.stringify({ currentPassword, newPassword })
+      });
+      const data = await response.json();
+      if (!response.ok) {
+        throw new Error(data.message || 'Failed to change password');
+      }
+      return data;
+    } catch (error) {
+      throw error;
+    }
+  };
+
   // Logout handler
   const logout = () => {
     setCurrentUser(null);
@@ -142,6 +199,8 @@ export function AuthProvider({ children }) {
         login,
         loginWithGoogle,
         verifyOtp,
+        updateUserProfile,
+        changeUserPassword,
         logout,
         switchRole,
         ROLES,

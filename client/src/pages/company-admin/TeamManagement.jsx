@@ -19,6 +19,7 @@ export default function TeamManagement() {
   });
 
   const fetchUsers = async () => {
+    if (!token) return;
     try {
       const res = await fetch('/api/users', {
         headers: { Authorization: `Bearer ${token}` }
@@ -36,7 +37,7 @@ export default function TeamManagement() {
 
   useEffect(() => {
     fetchUsers();
-  }, []);
+  }, [token]);
 
   const handleInvite = async (e) => {
     e.preventDefault();
@@ -92,7 +93,7 @@ export default function TeamManagement() {
 
   const availableRoles = [
     { value: ROLES.SITE_ENGINEER, label: 'Site Engineer' },
-    { value: ROLES.STORE_MANAGER, label: 'Store Manager' },
+
     { value: ROLES.CONTRACTOR, label: 'Contractor' },
     { value: ROLES.CLIENT, label: 'Client' },
     { value: ROLES.COMPANY_ADMIN, label: 'Company Admin' }

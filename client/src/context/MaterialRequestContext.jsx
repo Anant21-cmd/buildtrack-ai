@@ -20,48 +20,72 @@ export function MaterialRequestProvider({ children }) {
   const { fetchMaterials } = useMaterials(); // To refresh stock after issuing
 
   const fetchRequirements = useCallback(async () => {
-    if (!token || !currentUser?.companyId) return;
+    if (!token || (!currentUser?.companyId && currentUser?.role !== 'SUPER_ADMIN')) return;
     try {
       const res = await fetch(`/api/material-requests/requirements`, {
         headers: { Authorization: `Bearer ${token}` }
       });
       const data = await res.json();
-      if (res.ok) setRequirements(data);
+      if (res.ok) {
+        setRequirements(data);
+        fetchRequests(data);
+      }
     } catch (err) {
       console.error('Failed to fetch requirements', err);
     }
   }, [token, currentUser]);
 
-  const fetchRequests = useCallback(async () => {
-    if (!token || !currentUser?.companyId) return;
+  const fetchRequests = useCallback(async (currentReqs) => {
+    if (!token || (!currentUser?.companyId && currentUser?.role !== 'SUPER_ADMIN')) return;
     try {
       const res = await fetch(`/api/material-requests`, {
         headers: { Authorization: `Bearer ${token}` }
       });
       const data = await res.json();
       if (res.ok) {
+        const reqList = currentReqs || requirements || [];
         // Map backend fields to frontend expected fields for seamless integration
-        const mappedData = data.map(r => ({
-          ...r,
-          projectName: r.project?.name,
-          materialName: r.material?.name,
-          unit: r.material?.unit,
-          requestedQuantity: r.qty,
-          requestedAt: new Date(r.requestDate).toLocaleString('en-US')
-        }));
+        const mappedData = data.map(r => {
+          const req = reqList.find(q => q.projectId === r.projectId && q.materialId === r.materialId);
+          const approvedQuota = req ? req.allocatedQty : (r.approvedQuota || 500);
+          const previouslyIssued = req ? req.issuedQty : (r.previouslyIssued || 0);
+          const remainingQuota = Math.max(0, approvedQuota - previouslyIssued);
+          const isExcess = r.qty > remainingQuota;
+          const excessQuantity = isExcess ? r.qty - remainingQuota : 0;
+          const excessHist = r.histories?.find(h => (h.remarks || '').toLowerCase().includes('excess'));
+          const rejectHist = r.histories?.find(h => h.status === 'Rejected');
+
+          return {
+            ...r,
+            projectName: r.project?.name || r.projectName,
+            materialName: r.material?.name || r.materialName,
+            unit: r.material?.unit || r.unit || 'Units',
+            requestedQuantity: r.qty,
+            purpose: r.reason || r.purpose || 'Site Requirement',
+            approvedQuota,
+            previouslyIssued,
+            remainingQuota,
+            isExcess,
+            excessQuantity,
+            excessJustification: r.excessJustification || excessHist?.remarks,
+            excessApprovedBy: r.excessApprovedBy || excessHist?.changedById || 'Management',
+            rejectionReason: r.rejectionReason || rejectHist?.remarks,
+            requestedAt: new Date(r.requestDate).toLocaleString('en-US')
+          };
+        });
         setRequests(mappedData);
       }
     } catch (err) {
       console.error('Failed to fetch requests', err);
     }
-  }, [token, currentUser]);
+  }, [token, currentUser, requirements]);
 
   useEffect(() => {
-    if (currentUser?.companyId) {
+    if (currentUser?.companyId || currentUser?.role === 'SUPER_ADMIN') {
       fetchRequirements();
       fetchRequests();
     }
-  }, [currentUser, fetchRequirements, fetchRequests]);
+  }, [currentUser]);
 
   const getRequirement = (projectId, materialId) => {
     const req = requirements.find((r) => r.projectId === projectId && r.materialId === materialId);
@@ -77,13 +101,14 @@ export function MaterialRequestProvider({ children }) {
     materialId,
     requestedQuantity,
     purpose,
-    requestedBy
+    requestedBy,
+    recipientPhone
   }) => {
     try {
       const res = await fetch(`/api/material-requests`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
-        body: JSON.stringify({ projectId, materialId, qty: Number(requestedQuantity), purpose, requestedBy })
+        body: JSON.stringify({ projectId, materialId, qty: Number(requestedQuantity), purpose, requestedBy, recipientPhone })
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data.message || 'Failed to create request');
@@ -91,70 +116,27 @@ export function MaterialRequestProvider({ children }) {
       await fetchRequirements();
       await fetchRequests();
       
-      return { request: data, isExcess: data.isExcess };
+      const record = data.record || data;
+      return { request: record, isExcess: record.isExcess, whatsapp: data.whatsapp };
     } catch (err) {
       throw err;
     }
   };
 
-  const approveStandardRequest = async (requestId, reviewerName) => {
+  const updateRequestStatus = async (requestId, status, remarks) => {
     try {
-      const res = await fetch(`/api/material-requests/${requestId}/approve`, {
+      const res = await fetch(`/api/material-requests/${requestId}/status`, {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
-        body: JSON.stringify({ reviewerName })
+        body: JSON.stringify({ status, remarks })
       });
       const data = await res.json();
-      if (!res.ok) throw new Error(data.message || 'Failed to approve');
-      await fetchRequests();
-    } catch (err) {
-      throw err;
-    }
-  };
-
-  const approveExcessTrap = async (requestId, reviewerName, justificationReason) => {
-    try {
-      const res = await fetch(`/api/material-requests/${requestId}/approve`, {
-        method: 'PUT',
-        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
-        body: JSON.stringify({ reviewerName, justificationReason })
-      });
-      const data = await res.json();
-      if (!res.ok) throw new Error(data.message || 'Failed to approve excess trap');
-      await fetchRequests();
-    } catch (err) {
-      throw err;
-    }
-  };
-
-  const rejectRequest = async (requestId, reviewerName, reason) => {
-    try {
-      const res = await fetch(`/api/material-requests/${requestId}/reject`, {
-        method: 'PUT',
-        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
-        body: JSON.stringify({ reviewerName, reason })
-      });
-      const data = await res.json();
-      if (!res.ok) throw new Error(data.message || 'Failed to reject');
-      await fetchRequests();
-    } catch (err) {
-      throw err;
-    }
-  };
-
-  const issueMaterial = async (requestId, storeManagerName) => {
-    try {
-      const res = await fetch(`/api/material-requests/${requestId}/issue`, {
-        method: 'PUT',
-        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
-        body: JSON.stringify({ storeManagerName })
-      });
-      const data = await res.json();
-      if (!res.ok) throw new Error(data.message || 'Failed to issue material');
+      if (!res.ok) throw new Error(data.message || 'Failed to update status');
       
       await fetchRequirements();
       await fetchRequests();
-      await fetchMaterials(); // Refresh global inventory stock
+      await fetchMaterials();
+      return data;
     } catch (err) {
       throw err;
     }
@@ -166,10 +148,7 @@ export function MaterialRequestProvider({ children }) {
         requirements,
         requests,
         createMaterialRequest,
-        approveStandardRequest,
-        approveExcessTrap,
-        rejectRequest,
-        issueMaterial,
+        updateRequestStatus,
         getRequirement,
         REQUEST_STATUSES
       }}

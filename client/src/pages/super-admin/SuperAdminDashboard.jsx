@@ -109,7 +109,7 @@ export default function SuperAdminDashboard() {
     .sa-trend-text { color: #94a3b8; font-weight: 400; }
 
     /* Main Grid */
-    .sa-grid-layout { display: grid; grid-template-columns: 2fr 1fr; gap: 2rem; align-items: start; }
+    .sa-grid-layout { display: grid; grid-template-columns: 1fr; gap: 2rem; align-items: start; }
     @media (max-width: 1024px) { .sa-grid-layout { grid-template-columns: 1fr; } }
 
     /* Sections / Tables */
@@ -288,46 +288,6 @@ export default function SuperAdminDashboard() {
             )}
           </div>
 
-          {/* Audit Log Timeline */}
-          <div className="sa-panel">
-            <div className="sa-panel-header">
-              <div className="sa-panel-title">
-                <div style={{ padding: '6px', background: '#eff6ff', borderRadius: '8px', color: '#3b82f6' }}><Activity size={18} /></div>
-                System Audit Trail
-              </div>
-            </div>
-            
-            {auditLogs && auditLogs.length > 0 ? (
-              <div className="sa-timeline">
-                {auditLogs.slice(0, 6).map(log => {
-                   const isApprove = log.action.includes('APPROVED');
-                   const isReject = log.action.includes('REJECTED');
-                   const iconBg = isApprove ? '#10b981' : isReject ? '#ef4444' : '#3b82f6';
-                   const IconCmp = isApprove ? Check : isReject ? X : Activity;
-                   return (
-                    <div className="sa-timeline-item" key={log.id}>
-                      <div className="sa-timeline-icon" style={{ background: iconBg, color: '#fff' }}>
-                        <IconCmp size={14} strokeWidth={3} />
-                      </div>
-                      <div className="sa-timeline-content">
-                        <div className="sa-timeline-title">{log.action.replace(/_/g, ' ')}</div>
-                        <div className="sa-timeline-desc">Entity: <span style={{fontWeight: 500}}>{log.entityId}</span></div>
-                        {log.reason && <div className="sa-timeline-desc" style={{fontStyle: 'italic'}}>"{log.reason}"</div>}
-                        <div className="sa-timeline-time"><Clock size={12} /> {new Date(log.timestamp).toLocaleString()}</div>
-                      </div>
-                    </div>
-                  );
-                })}
-              </div>
-            ) : (
-              <div className="sa-empty">
-                <div className="sa-empty-icon"><Activity size={32} /></div>
-                <div className="sa-empty-title">No Recent Activity</div>
-                <div className="sa-empty-desc">The system log is currently clean. Critical actions will appear here.</div>
-              </div>
-            )}
-          </div>
-
         </div>
       </div>
 
@@ -336,7 +296,7 @@ export default function SuperAdminDashboard() {
         isOpen={rejectModalOpen}
         onClose={() => setRejectModalOpen(false)}
         title={`Reject: ${selectedCompany?.name || ''}`}
-        subtitle="Mandatory audit trail reason required"
+        subtitle="Please provide a reason for rejection"
         footer={
           <>
             <Button variant="outline" onClick={() => setRejectModalOpen(false)}>
@@ -353,7 +313,7 @@ export default function SuperAdminDashboard() {
             <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', fontWeight: 700 }}>
               <AlertTriangle size={16} /> Audit Log Record
             </div>
-            This rejection reason will be stored in the permanent system audit log.
+            This rejection reason will be recorded for reference.
           </div>
           <div>
             <label style={{ display: 'block', fontSize: '0.85rem', fontWeight: 700, color: '#334155', marginBottom: '0.35rem' }}>

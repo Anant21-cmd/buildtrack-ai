@@ -249,7 +249,7 @@ export default function Login() {
             </div>
 
             <div style={{ display: 'flex', justifyContent: 'center' }}>
-              <GoogleLogin onSuccess={handleGoogleSuccess} onError={() => setErrorMessage('Google SSO Failed')} useOneTap theme="filled_black" />
+              <GoogleLogin onSuccess={handleGoogleSuccess} onError={() => setErrorMessage('Google SSO Failed')} theme="filled_black" />
             </div>
 
             <div style={{ textAlign: 'center', marginTop: '2rem' }}>

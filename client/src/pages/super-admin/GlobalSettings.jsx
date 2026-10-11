@@ -4,26 +4,46 @@ import Button from '../../components/common/Button';
 import { Save, Shield, Globe, Bell, Server } from 'lucide-react';
 
 export default function GlobalSettings() {
-  const [settings, setSettings] = useState({
-    allowRegistration: true,
-    maintenanceMode: false,
-    enforce2FA: false,
-    emailNotifications: true,
-    systemLogLevel: 'info'
+  const [settings, setSettings] = useState(() => {
+    try {
+      const saved = localStorage.getItem('buildtrack_global_settings');
+      return saved ? JSON.parse(saved) : {
+        allowRegistration: true,
+        maintenanceMode: false,
+        enforce2FA: false,
+        emailNotifications: true,
+        systemLogLevel: 'info'
+      };
+    } catch {
+      return {
+        allowRegistration: true,
+        maintenanceMode: false,
+        enforce2FA: false,
+        emailNotifications: true,
+        systemLogLevel: 'info'
+      };
+    }
   });
+
+  const [feedback, setFeedback] = useState(null);
 
   const toggleSetting = (key) => {
     setSettings(prev => ({ ...prev, [key]: !prev[key] }));
   };
 
   const handleSave = () => {
-    // In a real app, this would hit a PUT /api/settings endpoint
-    alert('System settings updated successfully!');
+    try {
+      localStorage.setItem('buildtrack_global_settings', JSON.stringify(settings));
+      setFeedback('Global platform settings updated successfully!');
+      setTimeout(() => setFeedback(null), 4000);
+    } catch (err) {
+      console.error(err);
+    }
   };
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: '1.5rem', paddingBottom: '2rem', maxWidth: '800px' }}>
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-end' }}>
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-end', flexWrap: 'wrap', gap: '1rem' }}>
         <div>
           <h1 style={{ fontSize: '1.5rem', fontWeight: 700, color: '#0f172a', marginBottom: '0.25rem' }}>
             Platform Settings
@@ -34,6 +54,20 @@ export default function GlobalSettings() {
         </div>
         <Button onClick={handleSave} icon={Save}>Save Changes</Button>
       </div>
+
+      {feedback && (
+        <div style={{
+          padding: '0.75rem 1rem',
+          borderRadius: '6px',
+          backgroundColor: '#ecfdf5',
+          color: '#047857',
+          border: '1px solid #a7f3d0',
+          fontWeight: 600,
+          fontSize: '0.875rem'
+        }}>
+          {feedback}
+        </div>
+      )}
 
       <Card title="Security & Access">
         <div style={{ display: 'flex', flexDirection: 'column', gap: '1.5rem', marginTop: '1rem' }}>

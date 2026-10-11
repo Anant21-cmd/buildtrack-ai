@@ -1,15 +1,15 @@
 import React, { useEffect, useState } from 'react';
-import { useProgress } from '../../context/ProgressContext';
+import { useReports } from '../../context/ReportContext';
 import { useProjects } from '../../context/ProjectContext';
 import Card from '../../components/common/Card';
 import { Calendar, Users, AlertCircle, CheckCircle2 } from 'lucide-react';
 
 export default function ClientMilestones() {
-  const { dprs, fetchDprs, loading } = useProgress();
+  const { reports, fetchReports, loading } = useReports();
   const { projects } = useProjects();
 
   useEffect(() => {
-    fetchDprs();
+    fetchReports();
   }, []);
 
   if (loading) {
@@ -21,7 +21,7 @@ export default function ClientMilestones() {
     );
   }
 
-  if (!dprs || dprs.length === 0) {
+  if (!reports || reports.length === 0) {
     return (
       <div className="page-container">
         <h1 className="page-title">Site Timeline</h1>
@@ -37,7 +37,7 @@ export default function ClientMilestones() {
       <h1 className="page-title">Site Timeline & Visual Progress</h1>
       
       <div style={{ display: 'flex', flexDirection: 'column', gap: '2rem' }}>
-        {dprs.map((report) => {
+        {reports.map((report) => {
           const project = projects?.find(p => p.id === report.projectId);
           
           return (
@@ -53,7 +53,7 @@ export default function ClientMilestones() {
                         <Calendar size={14} /> {new Date(report.date).toLocaleDateString(undefined, { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })}
                       </span>
                       <span style={{ display: 'flex', alignItems: 'center', gap: '0.35rem' }}>
-                        <Users size={14} /> {report.workersPresent} Workers On-site
+                        <Users size={14} /> {report.manpowerCount} Workers On-site
                       </span>
                     </div>
                   </div>
@@ -67,15 +67,15 @@ export default function ClientMilestones() {
               <div style={{ padding: '1.5rem' }}>
                 <div style={{ marginBottom: '1.5rem' }}>
                   <h4 style={{ fontSize: '0.85rem', fontWeight: 700, color: '#475569', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: '0.5rem' }}>Work Completed</h4>
-                  <p style={{ color: '#1e293b', lineHeight: 1.6, margin: 0 }}>{report.completed}</p>
+                  <p style={{ color: '#1e293b', lineHeight: 1.6, margin: 0 }}>{report.workDescription}</p>
                 </div>
 
-                {report.issues && (
+                {report.remarks && (
                   <div style={{ marginBottom: '1.5rem', padding: '1rem', backgroundColor: '#fff7ed', borderLeft: '4px solid #f97316', borderRadius: '4px' }}>
                     <h4 style={{ fontSize: '0.85rem', fontWeight: 700, color: '#c2410c', display: 'flex', alignItems: 'center', gap: '0.5rem', margin: '0 0 0.5rem 0' }}>
                       <AlertCircle size={16} /> Issues / Delays Reported
                     </h4>
-                    <p style={{ color: '#9a3412', margin: 0, fontSize: '0.9rem' }}>{report.issues}</p>
+                    <p style={{ color: '#9a3412', margin: 0, fontSize: '0.9rem' }}>{report.remarks}</p>
                   </div>
                 )}
 

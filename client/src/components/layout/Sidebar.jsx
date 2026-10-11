@@ -21,7 +21,8 @@ import {
   HardHat,
   X,
   ChevronLeft,
-  ChevronRight
+  ChevronRight,
+  Camera
 } from 'lucide-react';
 import { useAuth, ROLES } from '../../context/AuthContext';
 
@@ -36,10 +37,18 @@ export default function Sidebar({ isCollapsed, setIsCollapsed, isMobileOpen, set
     const pathParts = location.pathname.split('/');
     if (pathParts[1] === 'projects' && pathParts[2]) {
       const projectId = pathParts[2];
+      
+      if (currentUser?.role === 'CLIENT' || currentUser?.role === ROLES.CLIENT) {
+        return [
+          { label: 'Back to Projects', path: '/client/projects', icon: Briefcase },
+          { label: 'Project Dashboard', path: `/projects/${projectId}?tab=OVERVIEW`, icon: LayoutDashboard }
+        ];
+      }
+
       return [
-        { label: 'â† Back to Projects', path: '/projects', icon: Briefcase },
+        { label: 'Back to Projects', path: '/projects', icon: Briefcase },
         { label: 'Project Dashboard', path: `/projects/${projectId}?tab=OVERVIEW`, icon: LayoutDashboard },
-        { label: 'Workforce & Teams', path: `/projects/${projectId}?tab=WORKFORCE`, icon: Users },
+        ...(currentUser?.role !== ROLES.SITE_ENGINEER ? [{ label: 'Workforce & Teams', path: `/projects/${projectId}?tab=WORKFORCE`, icon: Users }] : []),
         { label: 'Materials & Stock', path: `/projects/${projectId}?tab=MATERIALS`, icon: Package },
         { label: 'Tasks & Machinery', path: `/projects/${projectId}?tab=TASKS`, icon: CheckSquare },
         { label: 'Budget & Ledgers', path: `/projects/${projectId}?tab=FINANCE`, icon: DollarSign }
@@ -54,44 +63,44 @@ export default function Sidebar({ isCollapsed, setIsCollapsed, isMobileOpen, set
           { label: 'Company Approvals', path: '/super-admin/pending-approvals', icon: CheckSquare, badge: pendingCount > 0 ? pendingCount.toString() : undefined },
           { label: 'All Companies', path: '/super-admin/companies', icon: Building2 },
           { label: 'Platform Users', path: '/super-admin/users', icon: Users },
+          { label: 'Material Requests', path: '/materials/requests', icon: Package },
           { label: 'System Reports', path: '/super-admin/reports', icon: FileText },
-          { label: 'Audit Logs', path: '/super-admin/audit-logs', icon: Shield },
           { label: 'Platform Settings', path: '/super-admin/settings', icon: Settings }
         ];
       }
 
       case ROLES.SITE_ENGINEER:
         return [
-          { label: 'Site Dashboard', path: '/engineer/dashboard', icon: LayoutDashboard },
-          { label: 'My Projects', path: '/projects', icon: Briefcase },
-          { label: 'Worker Attendance', path: '/attendance', icon: CalendarCheck },
-          { label: 'Material Requests', path: '/materials/requests', icon: Package },
-          { label: 'Issue Reporting', path: '/issues', icon: AlertTriangle },
-          { label: 'Daily Progress (DPR)', path: '/progress', icon: TrendingUp },
-          { label: 'Site Tasks', path: '/tasks', icon: CheckSquare },
-          { label: 'Equipment Status', path: '/equipment', icon: Truck },
-          { label: 'Notifications', path: '/notifications', icon: Bell }
+          { label: 'Dashboard', path: '/engineer/dashboard', icon: LayoutDashboard },
+          { label: 'Projects', path: '/projects', icon: Briefcase },
+          { label: 'Tasks', path: '/tasks', icon: CheckSquare },
+          { label: 'Daily Site Reports', path: '/engineer/daily-reports', icon: FileText },
+          { label: 'Progress', path: '/progress', icon: TrendingUp },
+          { label: 'Attendance', path: '/attendance', icon: CalendarCheck },
+          { label: 'Materials', path: '/materials/requests', icon: Package },
+          { label: 'Issues', path: '/issues', icon: AlertTriangle },
+          { label: 'Quality Inspection', path: '/engineer/quality', icon: CheckSquare },
+          { label: 'Safety', path: '/engineer/safety', icon: Shield },
+          { label: 'Photos & Videos', path: '/engineer/media', icon: Camera },
+          { label: 'Notifications', path: '/notifications', icon: Bell },
+          { label: 'Profile', path: '/settings', icon: Settings }
         ];
 
-      case ROLES.STORE_MANAGER:
-        return [
-          { label: 'Store Dashboard', path: '/store/dashboard', icon: LayoutDashboard },
-          { label: 'Material Inventory', path: '/materials', icon: Package },
-          { label: 'Pending Requests', path: '/materials/requests', icon: AlertTriangle },
-          { label: 'Excess Approvals', path: '/materials/excess-trap', icon: Shield },
-          { label: 'Vendors & Suppliers', path: '/vendors', icon: Building2 },
-          { label: 'Purchase Orders', path: '/vendors/purchase-orders', icon: FileText },
-          { label: 'Receiving Verification', path: '/vendors/receiving', icon: UserCheck },
-          { label: 'Notifications', path: '/notifications', icon: Bell }
-        ];
+      
 
       case ROLES.CONTRACTOR:
         return [
           { label: 'Contractor Hub', path: '/contractor/dashboard', icon: LayoutDashboard },
           { label: 'Assigned Projects', path: '/contractor/projects', icon: Briefcase },
           { label: 'Assigned Workers', path: '/contractor/workers', icon: Users },
+          { label: 'Worker Attendance', path: '/contractor/attendance', icon: CalendarCheck },
           { label: 'Task Execution', path: '/contractor/tasks', icon: CheckSquare },
-          { label: 'Approved Materials', path: '/contractor/materials', icon: Package }
+          { label: 'Daily Progress', path: '/progress', icon: TrendingUp },
+          { label: 'Invoices & Billing', path: '/contractor/billing', icon: FileText },
+          { label: 'Approved Materials', path: '/contractor/materials', icon: Package },
+          { label: 'Report Issues', path: '/issues', icon: AlertTriangle },
+          { label: 'Notifications', path: '/notifications', icon: Bell },
+          { label: 'Profile', path: '/settings', icon: Settings }
         ];
 
       case ROLES.CLIENT:
@@ -107,6 +116,7 @@ export default function Sidebar({ isCollapsed, setIsCollapsed, isMobileOpen, set
         return [
           { label: 'Dashboard', path: '/company-admin/dashboard', icon: LayoutDashboard },
           { label: 'Projects', path: '/projects', icon: Briefcase },
+          { label: 'Material Requests', path: '/materials/requests', icon: Package },
           { label: 'Team Management', path: '/team-management', icon: Users },
           { label: 'Company Settings', path: '/settings', icon: Settings }
         ];

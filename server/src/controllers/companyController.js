@@ -1,4 +1,4 @@
-﻿const prisma = require('../config/prisma');
+const prisma = require('../config/prisma');
 const bcrypt = require('bcryptjs');
 const { sendApprovalEmail, sendRejectionEmail, sendVerificationEmail } = require('../utils/emailService');
 
@@ -154,8 +154,73 @@ exports.rejectCompany = async (req, res, next) => {
 // Super Admin Route: Get Audit Logs
 exports.getAuditLogs = async (req, res, next) => {
   try {
-    const logs = await prisma.auditLog.findMany({ orderBy: { timestamp: 'desc' } });
+    const logs = await prisma.auditLog.findMany({
+      where: {
+        action: {
+          in: ['COMPANY_REGISTERED', 'COMPANY_APPROVED', 'COMPANY_REJECTED', 'COMPANY_SUSPENDED']
+        }
+      },
+      orderBy: { timestamp: 'desc' }
+    });
     res.status(200).json(logs);
+  } catch (error) {
+    next(error);
+  }
+};
+
+// Super Admin Route: Suspend Company
+exports.suspendCompany = async (req, res, next) => {
+  try {
+    const { id } = req.params;
+    const { reason } = req.body;
+
+    const company = await prisma.company.update({
+      where: { id },
+      data: { status: 'SUSPENDED', rejectionReason: reason || 'Suspended by Super Admin' }
+    });
+
+    // Audit log
+    await prisma.auditLog.create({
+      data: {
+        actorName: 'Anand (Super Admin)',
+        actorRole: 'SUPER_ADMIN',
+        action: 'COMPANY_SUSPENDED',
+        entity: 'Company',
+        entityId: id,
+        newValue: 'Status: SUSPENDED',
+        reason: reason || 'Account suspended by Super Admin'
+      }
+    });
+
+    res.status(200).json({ message: 'Company suspended', company });
+  } catch (error) {
+    next(error);
+  }
+};
+
+// Company Admin Route: Update Current Company Profile
+exports.updateCurrentCompany = async (req, res, next) => {
+  try {
+    if (!req.user || !req.user.companyId) {
+      return res.status(403).json({ success: false, message: 'No company associated with this user.' });
+    }
+
+    const { companyName, name, regNumber, billingAddress, address, phone } = req.body;
+    const finalName = companyName || name;
+    const finalAddress = billingAddress || address;
+
+    const updateData = {};
+    if (finalName) updateData.name = finalName;
+    if (regNumber) updateData.regNumber = regNumber;
+    if (finalAddress) updateData.address = finalAddress;
+    if (phone) updateData.phone = phone;
+
+    const company = await prisma.company.update({
+      where: { id: req.user.companyId },
+      data: updateData
+    });
+
+    res.status(200).json({ success: true, message: 'Company profile updated successfully', company });
   } catch (error) {
     next(error);
   }

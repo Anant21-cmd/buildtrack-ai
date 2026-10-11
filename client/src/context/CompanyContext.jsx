@@ -82,9 +82,31 @@ export function CompanyProvider({ children }) {
     return result;
   };
 
-  // Suspend company (Not built on backend yet, placeholder)
+  // Super Admin suspends company
   const suspendCompany = async (companyId, reason) => {
-    alert("Suspend not implemented in API yet");
+    const res = await fetch(`/api/companies/${companyId}/suspend`, {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+      body: JSON.stringify({ reason })
+    });
+    const result = await res.json();
+    if (res.ok) {
+      fetchCompanies();
+      fetchAuditLogs();
+    }
+    return result;
+  };
+
+  // Company Admin updates current company details
+  const updateCurrentCompany = async (companyData) => {
+    const res = await fetch('/api/companies/current', {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+      body: JSON.stringify(companyData)
+    });
+    const result = await res.json();
+    if (!res.ok) throw new Error(result.message || 'Failed to update company');
+    return result.company;
   };
 
   return (
@@ -96,6 +118,7 @@ export function CompanyProvider({ children }) {
         approveCompany,
         rejectCompany,
         suspendCompany,
+        updateCurrentCompany,
         refreshData: () => { fetchCompanies(); fetchAuditLogs(); }
       }}
     >

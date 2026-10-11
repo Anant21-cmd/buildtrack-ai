@@ -1,14 +1,148 @@
 const prisma = require('../config/prisma');
+const whatsappService = require('../services/whatsappService');
+
+/**
+ * Record a status history entry
+ */
+const recordHistory = async (tx, requestId, status, changedById, remarks = '') => {
+  await tx.materialRequestHistory.create({
+    data: {
+      requestId,
+      status,
+      changedById,
+      remarks
+    }
+  });
+};
+
+/**
+ * Helper to fetch admin/reviewer for a project/company
+ */
+const getStoreManagerPhone = async (companyId) => {
+  const manager = await prisma.user.findFirst({
+    where: { companyId, role: 'COMPANY_ADMIN' },
+    select: { name: true, id: true }
+  });
+  return manager;
+};
+
+exports.createMaterialRequest = async (req, res, next) => {
+  try {
+    const { projectId, materialId, qty, purpose, location, requiredDate, priority, requestedBy } = req.body;
+    
+    if (!projectId || !materialId) {
+      return res.status(400).json({ message: 'Both Project and Material must be selected.' });
+    }
+
+    // Verify Project exists
+    const project = await prisma.project.findUnique({ where: { id: projectId } });
+    if (!project) {
+      return res.status(400).json({ message: `Project with ID ${projectId} does not exist.` });
+    }
+
+    // Verify Material exists
+    const material = await prisma.material.findUnique({ where: { id: materialId } });
+    if (!material) {
+      return res.status(400).json({ message: `Material with ID ${materialId} does not exist.` });
+    }
+
+    // Company check (allow SUPER_ADMIN)
+    if (req.user.role !== 'SUPER_ADMIN') {
+      if (!req.user.companyId || req.user.companyId !== project.companyId) {
+        return res.status(403).json({ message: 'Must belong to the company that owns this project.' });
+      }
+    }
+    
+    const record = await prisma.$transaction(async (tx) => {
+      const newRecord = await tx.materialRequest.create({ 
+        data: {
+          projectId,
+          materialId,
+          qty: parseFloat(qty) || 0,
+          reason: purpose || 'Material requisition', // mapped to reason
+          location,
+          requiredDate: requiredDate ? new Date(requiredDate) : null,
+          priority: priority || 'Medium',
+          requestedBy: requestedBy || req.user.name,
+          status: 'Pending'
+        },
+        include: { project: true, material: true }
+      });
+      
+      await recordHistory(tx, newRecord.id, 'Pending', req.user.id, 'Request created');
+      
+      return newRecord;
+    });
+
+    let targetPhone = req.body.recipientPhone || process.env.TEST_WHATSAPP_PHONE || '916382069963'; 
+    const requestUrl = `${process.env.FRONTEND_URL || 'http://localhost:3000'}/materials/requests`;
+
+    const waData = {
+      id: record.id,
+      project: record.project.name,
+      material: record.material.name,
+      qty: record.qty,
+      unit: record.material.unit,
+      requiredDate: record.requiredDate ? new Date(record.requiredDate).toLocaleDateString() : '',
+      priority: record.priority,
+      reason: record.reason,
+      requester: record.requestedBy,
+      requestUrl
+    };
+
+    const waResult = await whatsappService.sendNotification(targetPhone, waData);
+    
+    if (waResult.mode === 'real_whatsapp' || waResult.mode === 'api' || waResult.mode === 'link') {
+      await prisma.materialRequest.update({
+        where: { id: record.id },
+        data: {
+          waMessageId: waResult.messageId || null,
+          waStatus: waResult.status || (waResult.success ? 'sent' : 'failed'),
+          waFailureReason: waResult.error || null,
+          waSentAt: waResult.success ? new Date() : null
+        }
+      });
+    }
+
+    res.status(201).json({ record, whatsapp: waResult });
+  } catch (error) {
+    next(error);
+  }
+};
+
+exports.getCompanyMaterialRequests = async (req, res, next) => {
+  try {
+    let whereClause = {};
+    if (req.user.role !== 'SUPER_ADMIN') {
+      if (!req.user.companyId) return res.status(403).json({ message: 'Must belong to a company' });
+      const projects = await prisma.project.findMany({ where: { companyId: req.user.companyId }, select: { id: true } });
+      const projectIds = projects.map(p => p.id);
+      whereClause = { projectId: { in: projectIds } };
+    }
+
+    const records = await prisma.materialRequest.findMany({ 
+      where: whereClause,
+      include: { project: true, material: true, histories: { orderBy: { createdAt: 'desc' } } },
+      orderBy: { requestDate: 'desc' }
+    });
+    res.status(200).json(records);
+  } catch (error) {
+    next(error);
+  }
+};
 
 exports.getRequirements = async (req, res, next) => {
   try {
-    if (!req.user.companyId) return res.status(403).json({ message: 'Must belong to a company' });
-    
-    const projects = await prisma.project.findMany({ where: { companyId: req.user.companyId }, select: { id: true } });
-    const projectIds = projects.map(p => p.id);
+    let whereClause = {};
+    if (req.user.role !== 'SUPER_ADMIN') {
+      if (!req.user.companyId) return res.status(403).json({ message: 'Must belong to a company' });
+      const projects = await prisma.project.findMany({ where: { companyId: req.user.companyId }, select: { id: true } });
+      const projectIds = projects.map(p => p.id);
+      whereClause = { projectId: { in: projectIds } };
+    }
     
     const allocations = await prisma.projectMaterialAllocation.findMany({
-      where: { projectId: { in: projectIds } },
+      where: whereClause,
       include: { project: true, material: true }
     });
     
@@ -18,161 +152,76 @@ exports.getRequirements = async (req, res, next) => {
   }
 };
 
-exports.getCompanyMaterialRequests = async (req, res, next) => {
-  try {
-    if (!req.user.companyId) return res.status(403).json({ message: 'Must belong to a company' });
-
-    const projects = await prisma.project.findMany({ where: { companyId: req.user.companyId }, select: { id: true } });
-    const projectIds = projects.map(p => p.id);
-    const records = await prisma.materialRequest.findMany({ 
-      where: { projectId: { in: projectIds } },
-      include: { project: true, material: true },
-      orderBy: { requestDate: 'desc' }
-    });
-    res.status(200).json(records);
-  } catch (error) {
-    next(error);
-  }
-};
-
-exports.createMaterialRequest = async (req, res, next) => {
-  try {
-    if (!req.user.companyId) return res.status(403).json({ message: 'Must belong to a company' });
-    
-    const { projectId, materialId, qty, purpose, requestedBy } = req.body;
-    
-    // Fetch or create allocation
-    let allocation = await prisma.projectMaterialAllocation.findUnique({
-      where: { projectId_materialId: { projectId, materialId } }
-    });
-    
-    if (!allocation) {
-      allocation = await prisma.projectMaterialAllocation.create({
-        data: { projectId, materialId, allocatedQty: 500, issuedQty: 0 }
-      });
-    }
-
-    const remainingQuota = allocation.allocatedQty - allocation.issuedQty;
-    const isExcess = qty > remainingQuota;
-    const excessQty = isExcess ? qty - remainingQuota : 0;
-    const status = isExcess ? 'EXCESS_FLAGGED' : 'PENDING';
-    
-    const record = await prisma.materialRequest.create({ 
-      data: {
-        projectId,
-        materialId,
-        qty,
-        purpose,
-        requestedBy: requestedBy || req.user.name,
-        isExcess,
-        excessQty,
-        approvedQuota: allocation.allocatedQty,
-        previouslyIssued: allocation.issuedQty,
-        status
-      },
-      include: { project: true, material: true }
-    });
-    
-    res.status(201).json(record);
-  } catch (error) {
-    next(error);
-  }
-};
-
-exports.approveRequest = async (req, res, next) => {
+exports.updateStatus = async (req, res, next) => {
   try {
     const { id } = req.params;
-    const { reviewerName, justificationReason } = req.body;
-    
-    const request = await prisma.materialRequest.findUnique({ where: { id } });
-    if (!request) return res.status(404).json({ message: 'Not found' });
-    
-    if (request.isExcess && (!justificationReason || !justificationReason.trim())) {
-      return res.status(400).json({ message: 'Formal justification required for excess quota override.' });
+    const { status, remarks } = req.body;
+
+    const validStatuses = ['Pending', 'Under Review', 'Approved', 'Partially Available', 'Insufficient Stock', 'Purchase Required', 'Ready for Issue', 'Issued', 'Delivered', 'Rejected'];
+    const normalizedInput = (status || '').toLowerCase().replace(/_/g, ' ').trim();
+    const matchedStatus = validStatuses.find(s => s.toLowerCase() === normalizedInput);
+    if (!matchedStatus) {
+      return res.status(400).json({ message: `Invalid status: ${status}. Must be one of: ${validStatuses.join(', ')}` });
     }
-    
-    const updated = await prisma.materialRequest.update({
+    const finalStatus = matchedStatus;
+
+    const request = await prisma.materialRequest.findUnique({ 
       where: { id },
-      data: {
-        status: 'APPROVED',
-        reviewerName,
-        excessJustification: request.isExcess ? justificationReason : null
-      },
-      include: { project: true, material: true }
+      include: { material: true, project: true }
     });
-    
-    res.status(200).json(updated);
-  } catch (error) {
-    next(error);
-  }
-};
-
-exports.rejectRequest = async (req, res, next) => {
-  try {
-    const { id } = req.params;
-    const { reviewerName, reason } = req.body;
-    
-    if (!reason || !reason.trim()) {
-      return res.status(400).json({ message: 'Rejection reason is required.' });
-    }
-    
-    const updated = await prisma.materialRequest.update({
-      where: { id },
-      data: {
-        status: 'REJECTED',
-        reviewerName,
-        rejectionReason: reason
-      },
-      include: { project: true, material: true }
-    });
-    
-    res.status(200).json(updated);
-  } catch (error) {
-    next(error);
-  }
-};
-
-exports.issueMaterial = async (req, res, next) => {
-  try {
-    const { id } = req.params;
-    const { storeManagerName } = req.body;
-    
-    const request = await prisma.materialRequest.findUnique({ where: { id } });
     if (!request) return res.status(404).json({ message: 'Not found' });
-    
-    if (request.status === 'EXCESS_FLAGGED') {
-      return res.status(400).json({ message: 'Cannot issue: Requires management authorization for excess quantity.' });
-    }
-    if (request.status === 'REJECTED') {
-      return res.status(400).json({ message: 'Cannot issue a rejected request.' });
-    }
 
-    // Deduct stock from material (in a transaction)
-    const transaction = await prisma.$transaction(async (tx) => {
-      // 1. Update MaterialRequest
-      const updatedReq = await tx.materialRequest.update({
+    let finalRecord;
+
+    await prisma.$transaction(async (tx) => {
+      // Inventory checks
+      if (finalStatus === 'Ready for Issue' || finalStatus === 'Issued') {
+        const material = await tx.material.findUnique({ where: { id: request.materialId } });
+        if (material && material.stock < request.qty) {
+          throw new Error(`Insufficient stock. Available: ${material.stock}, Requested: ${request.qty}`);
+        }
+      }
+
+      // Deduct stock on Issue
+      if (finalStatus === 'Issued' && request.status !== 'Issued') {
+        await tx.material.update({
+          where: { id: request.materialId },
+          data: { stock: { decrement: request.qty } }
+        });
+      }
+
+      finalRecord = await tx.materialRequest.update({
         where: { id },
-        data: { status: 'ISSUED', reviewerName: storeManagerName },
+        data: { status: finalStatus },
         include: { project: true, material: true }
       });
-      
-      // 2. Update ProjectMaterialAllocation
-      await tx.projectMaterialAllocation.update({
-        where: { projectId_materialId: { projectId: request.projectId, materialId: request.materialId } },
-        data: { issuedQty: { increment: request.qty } }
-      });
-      
-      // 3. Deduct stock from warehouse
-      await tx.material.update({
-        where: { id: request.materialId },
-        data: { stock: { decrement: request.qty } }
-      });
-      
-      return updatedReq;
+
+      await recordHistory(tx, id, finalStatus, req.user.id, remarks || `Status changed to ${finalStatus}`);
     });
+
+    let targetPhone = process.env.TEST_WHATSAPP_PHONE || '916382069963';
+    const requestUrl = `${process.env.FRONTEND_URL || 'http://localhost:3000'}/materials/requests`;
+
+    const waData = {
+      id: finalRecord.id,
+      material: finalRecord.material.name,
+      status: finalRecord.status,
+      remarks,
+      requestUrl
+    };
+
+    let waResult = null;
+    try {
+      waResult = await whatsappService.sendStatusUpdateNotification(targetPhone, waData);
+    } catch (waErr) {
+      console.error('WhatsApp notify error', waErr);
+    }
     
-    res.status(200).json(transaction);
+    res.status(200).json({ record: finalRecord, whatsapp: waResult });
   } catch (error) {
+    if (error.message.includes('Insufficient stock')) {
+      return res.status(400).json({ message: error.message });
+    }
     next(error);
   }
 };

@@ -8,7 +8,12 @@ exports.createExpense = async (req, res, next) => {
     let parentCompanyId = null;
     /* We assume project is valid */
     
-    const record = await prisma.expense.create({ data: req.body });
+    const record = await prisma.expense.create({ 
+      data: {
+        ...req.body,
+        companyId: req.user.companyId
+      }
+    });
     res.status(201).json(record);
   } catch (error) {
     next(error);
@@ -21,7 +26,10 @@ exports.getCompanyExpenses = async (req, res, next) => {
 
     const projects = await prisma.project.findMany({ where: { companyId: req.user.companyId }, select: { id: true } });
     const projectIds = projects.map(p => p.id);
-    const records = await prisma.expense.findMany({ where: { projectId: { in: projectIds } } });
+    const records = await prisma.expense.findMany({ 
+      where: { projectId: { in: projectIds } },
+      include: { project: true }
+    });
     res.status(200).json(records);
   } catch (error) {
     next(error);

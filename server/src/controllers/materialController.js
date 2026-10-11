@@ -23,10 +23,14 @@ exports.createMaterial = async (req, res, next) => {
 
 exports.getCompanyMaterials = async (req, res, next) => {
   try {
-    if (!req.user.companyId) return res.status(403).json({ message: 'Must belong to a company' });
+    let whereClause = {};
+    if (req.user.role !== 'SUPER_ADMIN') {
+      if (!req.user.companyId) return res.status(403).json({ message: 'Must belong to a company' });
+      whereClause = { companyId: req.user.companyId };
+    }
 
     const materials = await prisma.material.findMany({
-      where: { companyId: req.user.companyId },
+      where: whereClause,
       orderBy: { name: 'asc' }
     });
 

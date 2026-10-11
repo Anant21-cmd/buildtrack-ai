@@ -4,10 +4,14 @@ import Badge from '../../components/common/Badge';
 import { DollarSign, Activity, Image as ImageIcon, TrendingUp, TrendingDown, Minus } from 'lucide-react';
 import { useProjects } from '../../context/ProjectContext';
 import { useMarketPrices } from '../../context/MarketPriceContext';
+import { useTasks } from '../../context/TaskContext';
+import { useReports } from '../../context/ReportContext';
 
 export default function ClientDashboard() {
   const { projects } = useProjects();
   const { marketPrices, loading } = useMarketPrices();
+  const { tasks } = useTasks();
+  const { photos } = useReports();
   
   // For demo, just aggregate all projects if they have any, or use 0
   const totalSpent = projects.reduce((acc, p) => acc + (p.spent || 0), 0);
@@ -28,7 +32,7 @@ export default function ClientDashboard() {
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: '1rem' }}>
         <MetricCard title="Overall Progress" value={`${progress}%`} icon={Activity} color="#16a34a" />
         <MetricCard title="Budget Utilized" value={`₹${totalSpent.toLocaleString('en-IN')}`} icon={DollarSign} color="#2563eb" />
-        <MetricCard title="Latest Updates" value="0 Photos" icon={ImageIcon} color="#ca8a04" />
+        <MetricCard title="Latest Updates" value={`${photos ? photos.length : 0} Photos`} icon={ImageIcon} color="#ca8a04" />
       </div>
 
       <Card title="Current Construction Material Market Prices (Madurai, TN)">
@@ -85,11 +89,22 @@ export default function ClientDashboard() {
         <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem', marginTop: '1rem' }}>
           {projects.length === 0 ? (
             <p style={{ color: '#64748b', fontSize: '0.85rem' }}>No projects assigned to you yet.</p>
+          ) : tasks.length === 0 ? (
+            <p style={{ color: '#64748b', fontSize: '0.85rem' }}>No milestones found for your projects.</p>
           ) : (
-            <MilestoneRow title={`${projects[0].name} Started`} date={new Date(projects[0].startDate).toLocaleDateString()} status="COMPLETED" />
+            tasks
+              .filter(t => projects.some(p => p.id === t.projectId))
+              .sort((a, b) => new Date(a.dueDate || a.createdAt) - new Date(b.dueDate || b.createdAt))
+              .slice(0, 5)
+              .map(task => (
+                <MilestoneRow 
+                  key={task.id}
+                  title={task.title} 
+                  date={task.dueDate ? new Date(task.dueDate).toLocaleDateString() : 'No date set'} 
+                  status={task.status === 'Completed' ? 'COMPLETED' : 'PENDING'} 
+                />
+              ))
           )}
-          <MilestoneRow title="Foundation & Substructure" date="Expected Phase 1" status="PENDING" />
-          <MilestoneRow title="MEP Rough-ins" date="Expected Phase 2" status="PENDING" />
         </div>
       </Card>
     </div>

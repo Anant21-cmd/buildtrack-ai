@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate, Link, useSearchParams } from 'react-router-dom';
 import {
   Briefcase,
@@ -36,10 +36,20 @@ export default function ProjectDashboard() {
   const { id } = useParams();
   const navigate = useNavigate();
   const [searchParams, setSearchParams] = useSearchParams();
-  const { getProject } = useProjects();
+  const { getProject, updateProject } = useProjects();
   const { workers = [], addWorker } = useWorkers();
 
   const project = getProject(id);
+
+  const handleLocationChange = async ({ latitude, longitude, location: newLocation }) => {
+    if (project && updateProject) {
+      await updateProject(project.id, {
+        latitude,
+        longitude,
+        location: newLocation
+      });
+    }
+  };
   
   const activeTab = searchParams.get('tab') || 'OVERVIEW';
   const setActiveTab = (tab) => {
@@ -48,13 +58,59 @@ export default function ProjectDashboard() {
 
   // Assign Staff Modal State (For Admins)
   const [assignStaffModalOpen, setAssignStaffModalOpen] = useState(false);
-  const [assignedStaff, setAssignedStaff] = useState([]); // Local state for immediate UI update
+  const [assignedStaff, setAssignedStaff] = useState([]);
+  const [availableCompanyStaff, setAvailableCompanyStaff] = useState([]);
+  const [assignMode, setAssignMode] = useState('EXISTING'); // 'EXISTING' or 'NEW'
+  const [selectedStaffId, setSelectedStaffId] = useState('');
   const [isInviting, setIsInviting] = useState(false);
   const [staffForm, setStaffForm] = useState({
     name: '',
     email: '',
     role: 'SITE_ENGINEER'
   });
+
+  // Fetch available company engineers and contractors for assignment
+  useEffect(() => {
+    const fetchCompanyStaff = async () => {
+      try {
+        const res = await fetch('/api/users', {
+          headers: { Authorization: `Bearer ${token}` }
+        });
+        if (res.ok) {
+          const data = await res.json();
+          const staff = data.filter(u => u.role === 'SITE_ENGINEER' || u.role === 'CONTRACTOR');
+          setAvailableCompanyStaff(staff);
+        }
+      } catch (err) {
+        console.error('Failed to fetch company staff', err);
+      }
+    };
+    if (token) {
+      fetchCompanyStaff();
+    }
+  }, [token]);
+
+  // Load project-specific assigned staff: EMPTY by default for new projects
+  useEffect(() => {
+    if (!id) return;
+    const stored = localStorage.getItem(`buildtrack_assigned_staff_${id}`);
+    if (stored) {
+      try {
+        setAssignedStaff(JSON.parse(stored));
+        return;
+      } catch (e) {
+        console.error('Failed to parse assigned staff from cache', e);
+      }
+    }
+
+    // Default: Established demo project BALA HOME preserves its existing team, new projects start completely empty
+    if (project?.name === 'BALA HOME' && availableCompanyStaff.length > 0) {
+      setAssignedStaff(availableCompanyStaff);
+    } else {
+      // New projects (e.g. MOHAN HOME) start with 0 assigned staff
+      setAssignedStaff([]);
+    }
+  }, [id, project?.name, availableCompanyStaff]);
 
   // Invite Client Modal State
   const [inviteClientModalOpen, setInviteClientModalOpen] = useState(false);
@@ -92,11 +148,33 @@ export default function ProjectDashboard() {
     }
   };
 
+  const handleAssignExistingStaff = () => {
+    if (!selectedStaffId) {
+      alert('Please select a staff member to assign.');
+      return;
+    }
+    const staffMember = availableCompanyStaff.find(s => s.id === selectedStaffId);
+    if (!staffMember) return;
+
+    if (assignedStaff.some(s => s.id === staffMember.id || s.email === staffMember.email)) {
+      alert('This staff member is already assigned to this project.');
+      return;
+    }
+
+    const updated = [...assignedStaff, { ...staffMember, status: 'Active' }];
+    setAssignedStaff(updated);
+    if (id) {
+      localStorage.setItem(`buildtrack_assigned_staff_${id}`, JSON.stringify(updated));
+    }
+    setSelectedStaffId('');
+    setAssignStaffModalOpen(false);
+  };
+
   const handleStaffSubmit = async (e) => {
     e.preventDefault();
     setIsInviting(true);
     try {
-      // 1. Hit the real database API to create the user and send verification email
+      // Hit database API to create user & send invite
       const res = await fetch('/api/users/invite', {
         method: 'POST',
         headers: {
@@ -109,12 +187,16 @@ export default function ProjectDashboard() {
       const data = await res.json();
       
       if (res.ok) {
-        // 2. Update UI instantly
-        setAssignedStaff([...assignedStaff, {
+        const newStaff = {
           ...staffForm,
           id: data.user?.id || `USR-${Math.floor(1000 + Math.random() * 9000)}`,
           status: 'Invited (Pending)'
-        }]);
+        };
+        const updated = [...assignedStaff, newStaff];
+        setAssignedStaff(updated);
+        if (id) {
+          localStorage.setItem(`buildtrack_assigned_staff_${id}`, JSON.stringify(updated));
+        }
         setAssignStaffModalOpen(false);
         setStaffForm({ name: '', email: '', role: 'SITE_ENGINEER' });
         alert('Invitation sent successfully! An email has been dispatched to ' + staffForm.email);
@@ -126,6 +208,16 @@ export default function ProjectDashboard() {
       alert('An error occurred while inviting the staff member.');
     } finally {
       setIsInviting(false);
+    }
+  };
+
+  const handleUnassignStaff = (staffId) => {
+    if (window.confirm('Are you sure you want to remove this staff member from this project?')) {
+      const updated = assignedStaff.filter(s => s.id !== staffId);
+      setAssignedStaff(updated);
+      if (id) {
+        localStorage.setItem(`buildtrack_assigned_staff_${id}`, JSON.stringify(updated));
+      }
     }
   };
 
@@ -172,6 +264,18 @@ export default function ProjectDashboard() {
   const budgetUtilization = Math.round((project.spent / (project.budget || 1)) * 100);
   
   const siteWorkers = workers.filter(w => w.assignedProjectId === project.id);
+  const projectMaterials = (project.allocations && project.allocations.length > 0)
+    ? project.allocations.map(a => ({
+        id: a.id,
+        name: a.material?.name || 'Material',
+        category: a.material?.category || 'General',
+        approvedQty: a.allocatedQty,
+        issuedQty: a.issuedQty,
+        unit: a.material?.unit || 'Units',
+        stock: a.material?.stock || 0,
+        minStock: a.material?.minThreshold || 0
+      }))
+    : (project.materials || []);
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: '1.75rem' }}>
@@ -200,119 +304,250 @@ export default function ProjectDashboard() {
         </div>
       </div>
 
-      {/* Project Master Hero Card */}
-      <div
-        style={{
-          backgroundColor: '#0f172a',
-          color: '#ffffff',
-          borderRadius: '12px',
-          padding: '2rem',
-          borderLeft: '4px solid #f59e0b'
-        }}
-      >
-        <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', flexWrap: 'wrap', gap: '1.5rem' }}>
-          <div>
-            <div style={{ display: 'flex', alignItems: 'center', gap: '0.65rem', marginBottom: '0.35rem' }}>
-              <span style={{ backgroundColor: '#d97706', color: '#ffffff', fontSize: '0.75rem', fontWeight: 800, padding: '0.2rem 0.5rem', borderRadius: '4px' }}>
-                {project.code}
-              </span>
-              <span style={{ color: '#94a3b8', fontSize: '0.85rem', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-                Client: <strong>{project.client}</strong>
-                {(currentUser?.role === 'COMPANY_ADMIN' || currentUser?.role === ROLES?.COMPANY_ADMIN) && (
-                  <button 
-                    onClick={() => {
-                      setClientForm({...clientForm, name: project.client || ''});
-                      setInviteClientModalOpen(true);
-                    }}
-                    style={{ background: 'transparent', border: '1px solid rgba(255,255,255,0.2)', color: '#e2e8f0', fontSize: '0.7rem', padding: '0.1rem 0.4rem', borderRadius: '4px', cursor: 'pointer' }}
-                  >
-                    + Grant Access
-                  </button>
-                )}
-              </span>
-            </div>
+      {/* Project Master Hero Card: Full Hero on OVERVIEW tab */}
+      {activeTab === 'OVERVIEW' ? (
+        <>
+          <div
+            style={{
+              backgroundColor: '#0f172a',
+              color: '#ffffff',
+              borderRadius: '12px',
+              padding: '2rem',
+              borderLeft: '4px solid #f59e0b'
+            }}
+          >
+            <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', flexWrap: 'wrap', gap: '1.5rem' }}>
+              <div>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '0.65rem', marginBottom: '0.35rem' }}>
+                  <span style={{ backgroundColor: '#d97706', color: '#ffffff', fontSize: '0.75rem', fontWeight: 800, padding: '0.2rem 0.5rem', borderRadius: '4px' }}>
+                    {project.code}
+                  </span>
+                  <span style={{ color: '#94a3b8', fontSize: '0.85rem', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                    Client: <strong>{project.client}</strong>
+                    {(currentUser?.role === 'COMPANY_ADMIN' || currentUser?.role === ROLES?.COMPANY_ADMIN) && (
+                      <button 
+                        onClick={() => {
+                          setClientForm({...clientForm, name: project.client || ''});
+                          setInviteClientModalOpen(true);
+                        }}
+                        style={{ background: 'transparent', border: '1px solid rgba(255,255,255,0.2)', color: '#e2e8f0', fontSize: '0.7rem', padding: '0.1rem 0.4rem', borderRadius: '4px', cursor: 'pointer' }}
+                      >
+                        + Grant Access
+                      </button>
+                    )}
+                  </span>
+                </div>
 
-            <h1 style={{ fontSize: '1.85rem', fontWeight: 800 }}>{project.name}</h1>
-            
-            <p style={{ color: '#cbd5e1', fontSize: '0.9rem', maxWidth: '750px', marginTop: '0.35rem', lineHeight: 1.5 }}>
-              {project.description}
-            </p>
+                <h1 style={{ fontSize: '1.85rem', fontWeight: 800 }}>{project.name}</h1>
+                
+                <p style={{ color: '#cbd5e1', fontSize: '0.9rem', maxWidth: '750px', marginTop: '0.35rem', lineHeight: 1.5 }}>
+                  {project.description}
+                </p>
 
-            <div style={{ display: 'flex', alignItems: 'center', gap: '1.5rem', marginTop: '1rem', flexWrap: 'wrap', fontSize: '0.85rem', color: '#94a3b8' }}>
-              <div style={{ display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
-                <MapPin size={15} style={{ color: '#f59e0b' }} />
-                <span>{project.location}</span>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '1.5rem', marginTop: '1rem', flexWrap: 'wrap', fontSize: '0.85rem', color: '#94a3b8' }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
+                    <MapPin size={15} style={{ color: '#f59e0b' }} />
+                    <span>{project.location}</span>
+                  </div>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
+                    <Compass size={15} style={{ color: '#10b981' }} />
+                    <span>GPS: {project.latitude}, {project.longitude} (&plusmn;{project.radiusMeters}m geofence)</span>
+                  </div>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
+                    <Calendar size={15} style={{ color: '#38bdf8' }} />
+                    <span>{new Date(project.startDate).toLocaleDateString()} &rarr; {new Date(project.endDate).toLocaleDateString()}</span>
+                  </div>
+                </div>
               </div>
-              <div style={{ display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
-                <Compass size={15} style={{ color: '#10b981' }} />
-                <span>GPS: {project.latitude}, {project.longitude} (&plusmn;{project.radiusMeters}m geofence)</span>
-              </div>
-              <div style={{ display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
-                <Calendar size={15} style={{ color: '#38bdf8' }} />
-                <span>{new Date(project.startDate).toLocaleDateString()} &rarr; {new Date(project.endDate).toLocaleDateString()}</span>
+
+              <div style={{ textAlign: 'right', display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
+                <span style={{ fontSize: '2rem', fontWeight: 900, color: '#f59e0b' }}>
+                  {project.progress}%
+                </span>
+                <span style={{ fontSize: '0.8rem', color: '#94a3b8', textTransform: 'uppercase', letterSpacing: '0.04em' }}>
+                  Physical Progress
+                </span>
               </div>
             </div>
           </div>
 
-          <div style={{ textAlign: 'right', display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
-            <span style={{ fontSize: '2rem', fontWeight: 900, color: '#f59e0b' }}>
-              {project.progress}%
+          {/* KPI Stats Row (Clickable shortcuts) */}
+          <div
+            style={{
+              display: 'grid',
+              gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))',
+              gap: '1.25rem'
+            }}
+          >
+            <div onClick={() => setActiveTab('TASKS')} style={{ cursor: 'pointer' }} title="View Milestones & Tasks">
+              <Card
+                title="Physical Completion"
+                value={`${project.progress}%`}
+                subtitle={`Target date: ${new Date(project.endDate).toLocaleDateString()}`}
+                icon={TrendingUp}
+                iconBg="#eff6ff"
+                iconColor="#1e3a8a"
+                trend={project.progress > 0 ? "In Progress" : "Planning"}
+                trendPositive={true}
+              />
+            </div>
+            <div onClick={() => setActiveTab('WORKFORCE')} style={{ cursor: 'pointer' }} title="View Workforce & Attendance">
+              <Card
+                title="Assigned Workers"
+                value={`${siteWorkers.length}`}
+                subtitle="Registered Site Staff"
+                icon={Users}
+                iconBg="#ecfdf5"
+                iconColor="#059669"
+                trend="Real-time Tracking"
+                trendPositive={true}
+              />
+            </div>
+            <div onClick={() => setActiveTab('MATERIALS')} style={{ cursor: 'pointer' }} title="View Materials & Quotas">
+              <Card
+                title="Materials Logged"
+                value={`${projectMaterials.length} Materials`}
+                subtitle="Approved Quota Baselines"
+                icon={Package}
+                iconBg="#f0fdf4"
+                iconColor="#16a34a"
+                trend="Quota Secured"
+                trendPositive={true}
+              />
+            </div>
+            <div onClick={() => setActiveTab('FINANCE')} style={{ cursor: 'pointer' }} title="View Budget & Expenses">
+              <Card
+                title="Budget Utilization"
+                value={`₹${(project.spent || 0).toLocaleString('en-IN')}`}
+                subtitle={`Remaining: ₹${(remainingBudget || 0).toLocaleString('en-IN')}`}
+                icon={DollarSign}
+                iconBg="#fef3c7"
+                iconColor="#d97706"
+                trend={`${budgetUtilization}% Used`}
+                trendPositive={budgetUtilization < 90}
+              />
+            </div>
+          </div>
+        </>
+      ) : (
+        /* Slim Compact Header for Sub-Tabs (WORKFORCE, MATERIALS, TASKS, FINANCE) */
+        <div
+          style={{
+            backgroundColor: '#0f172a',
+            color: '#ffffff',
+            borderRadius: '10px',
+            padding: '0.85rem 1.25rem',
+            display: 'flex',
+            justifyContent: 'space-between',
+            alignItems: 'center',
+            flexWrap: 'wrap',
+            gap: '1rem',
+            borderLeft: '4px solid #f59e0b',
+            boxShadow: '0 2px 4px rgba(0,0,0,0.06)'
+          }}
+        >
+          <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', flexWrap: 'wrap' }}>
+            <span style={{ backgroundColor: '#d97706', color: '#ffffff', fontSize: '0.725rem', fontWeight: 800, padding: '0.15rem 0.45rem', borderRadius: '4px' }}>
+              {project.code}
             </span>
-            <span style={{ fontSize: '0.8rem', color: '#94a3b8', textTransform: 'uppercase', letterSpacing: '0.04em' }}>
-              Physical Progress
+            <h2 style={{ fontSize: '1.2rem', fontWeight: 800, margin: 0, color: '#ffffff' }}>
+              {project.name}
+            </h2>
+            <span style={{ color: '#94a3b8', fontSize: '0.8rem' }}>
+              &bull; Client: <strong style={{ color: '#cbd5e1' }}>{project.client}</strong>
             </span>
+            <span style={{ color: '#94a3b8', fontSize: '0.8rem', display: 'flex', alignItems: 'center', gap: '0.25rem' }}>
+              <MapPin size={13} style={{ color: '#f59e0b' }} />
+              {project.location}
+            </span>
+          </div>
+
+          <div style={{ display: 'flex', alignItems: 'center', gap: '1.25rem' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '0.35rem', fontSize: '0.8rem', color: '#94a3b8' }}>
+              <span>Progress:</span>
+              <strong style={{ color: '#f59e0b', fontSize: '0.95rem' }}>{project.progress}%</strong>
+            </div>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '0.35rem', fontSize: '0.8rem', color: '#94a3b8' }}>
+              <span>Spent:</span>
+              <strong style={{ color: '#d97706', fontSize: '0.95rem' }}>₹{(project.spent || 0).toLocaleString('en-IN')}</strong>
+            </div>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '0.35rem', fontSize: '0.8rem', color: '#94a3b8' }}>
+              <span>Budget:</span>
+              <strong style={{ color: '#10b981', fontSize: '0.95rem' }}>₹{(project.budget || 0).toLocaleString('en-IN')}</strong>
+            </div>
           </div>
         </div>
-      </div>
+      )}
 
-      {/* KPI Stats Row */}
+      {/* Primary Project Tabs Navigation Bar: Visible across all views */}
       <div
         style={{
-          display: 'grid',
-          gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))',
-          gap: '1.25rem'
+          display: 'flex',
+          gap: '0.5rem',
+          backgroundColor: '#ffffff',
+          padding: '0.5rem',
+          borderRadius: '10px',
+          border: '1px solid #e2e8f0',
+          boxShadow: '0 1px 3px rgba(0,0,0,0.04)',
+          overflowX: 'auto'
         }}
       >
-        <Card
-          title="Physical Completion"
-          value={`${project.progress}%`}
-          subtitle={`Target date: ${new Date(project.endDate).toLocaleDateString()}`}
-          icon={TrendingUp}
-          iconBg="#eff6ff"
-          iconColor="#1e3a8a"
-          trend={project.progress > 0 ? "In Progress" : "Planning"}
-          trendPositive={true}
-        />
-        <Card
-          title="Assigned Workers"
-          value={`${siteWorkers.length}`}
-          subtitle="Registered Site Staff"
-          icon={Users}
-          iconBg="#ecfdf5"
-          iconColor="#059669"
-          trend="Real-time Tracking"
-          trendPositive={true}
-        />
-        <Card
-          title="Materials Logged"
-          value={`${(project.materials || []).length} Materials`}
-          subtitle="Approved Quota Baselines"
-          icon={Package}
-          iconBg="#f0fdf4"
-          iconColor="#16a34a"
-          trend="Quota Secured"
-          trendPositive={true}
-        />
-        <Card
-          title="Budget Utilization"
-          value={`₹${(project.spent || 0).toLocaleString('en-IN')}`}
-          subtitle={`Remaining: ₹${(remainingBudget || 0).toLocaleString('en-IN')}`}
-          icon={DollarSign}
-          iconBg="#fef3c7"
-          iconColor="#d97706"
-          trend={`${budgetUtilization}% Used`}
-          trendPositive={budgetUtilization < 90}
-        />
+        {[
+          { key: 'OVERVIEW', label: 'Overview & Site Map', icon: MapPin },
+          { key: 'WORKFORCE', label: 'Workforce & Teams', icon: Users, count: siteWorkers.length || assignedStaff.length },
+          { key: 'MATERIALS', label: 'Materials & Quotas', icon: Package, count: projectMaterials.length },
+          { key: 'TASKS', label: 'Milestones & Tasks', icon: CheckSquare, count: (project.tasks || []).length },
+          { key: 'FINANCE', label: 'Finance & Ledgers', icon: DollarSign }
+        ].map((tab) => {
+          const Icon = tab.icon;
+          const isActive = activeTab === tab.key;
+          return (
+            <button
+              key={tab.key}
+              type="button"
+              onClick={() => setActiveTab(tab.key)}
+              style={{
+                display: 'flex',
+                alignItems: 'center',
+                gap: '0.5rem',
+                padding: '0.6rem 1.1rem',
+                borderRadius: '8px',
+                border: isActive ? '1px solid #1e3a8a' : '1px solid transparent',
+                backgroundColor: isActive ? '#1e3a8a' : 'transparent',
+                color: isActive ? '#ffffff' : '#475569',
+                fontSize: '0.85rem',
+                fontWeight: 700,
+                cursor: 'pointer',
+                transition: 'all 0.15s ease',
+                whiteSpace: 'nowrap'
+              }}
+              onMouseEnter={(e) => {
+                if (!isActive) e.currentTarget.style.backgroundColor = '#f1f5f9';
+              }}
+              onMouseLeave={(e) => {
+                if (!isActive) e.currentTarget.style.backgroundColor = 'transparent';
+              }}
+            >
+              <Icon size={16} style={{ color: isActive ? '#38bdf8' : '#64748b' }} />
+              <span>{tab.label}</span>
+              {tab.count !== undefined && tab.count > 0 && (
+                <span
+                  style={{
+                    backgroundColor: isActive ? 'rgba(255,255,255,0.2)' : '#e2e8f0',
+                    color: isActive ? '#ffffff' : '#475569',
+                    fontSize: '0.7rem',
+                    fontWeight: 800,
+                    padding: '0.15rem 0.45rem',
+                    borderRadius: '999px',
+                    marginLeft: '0.2rem'
+                  }}
+                >
+                  {tab.count}
+                </span>
+              )}
+            </button>
+          );
+        })}
       </div>
 
       {/* Content Area */}
@@ -332,6 +567,7 @@ export default function ProjectDashboard() {
               radiusMeters={project.radiusMeters} 
               name={project.name} 
               location={project.location} 
+              onLocationChange={handleLocationChange}
             />
           </div>
 
@@ -341,24 +577,30 @@ export default function ProjectDashboard() {
               <Clock size={18} style={{ color: '#1e3a8a' }} /> Daily Site Progress Logs (DPR)
             </h3>
             <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
-              {(project.dailyProgress || []).map((dpr) => (
-                <div key={dpr.id} style={{ padding: '1rem', borderRadius: '8px', backgroundColor: '#f8fafc', border: '1px solid #e2e8f0' }}>
-                  <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '0.25rem' }}>
-                    <span style={{ fontWeight: 700, color: '#0f172a', fontSize: '0.9rem' }}>Date: {dpr.date}</span>
-                    <Badge status="COMPLETED" text={`${dpr.progressPct}% Progress`} />
+              {(project.dailyProgress && project.dailyProgress.length > 0) ? (
+                project.dailyProgress.map((dpr) => (
+                  <div key={dpr.id} style={{ padding: '1rem', borderRadius: '8px', backgroundColor: '#f8fafc', border: '1px solid #e2e8f0' }}>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '0.25rem' }}>
+                      <span style={{ fontWeight: 700, color: '#0f172a', fontSize: '0.9rem' }}>Date: {dpr.date}</span>
+                      <Badge status="COMPLETED" text={`${dpr.progressPct}% Progress`} />
+                    </div>
+                    <p style={{ color: '#334155', fontSize: '0.85rem', marginTop: '0.25rem' }}>{dpr.completed}</p>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.75rem', color: '#64748b', marginTop: '0.5rem', borderTop: '1px dashed #e2e8f0', paddingTop: '0.4rem' }}>
+                      <span>Workers: <strong>{dpr.workersPresent} present</strong></span>
+                      <span>Site Condition: <strong>Good</strong></span>
+                    </div>
+                    {dpr.issues && dpr.issues !== 'None' && (
+                      <p style={{ fontSize: '0.75rem', color: '#b91c1c', backgroundColor: '#fef2f2', padding: '0.35rem 0.5rem', borderRadius: '4px', marginTop: '0.4rem' }}>
+                        ⚠️ Site Issue: {dpr.issues}
+                      </p>
+                    )}
                   </div>
-                  <p style={{ color: '#334155', fontSize: '0.85rem', marginTop: '0.25rem' }}>{dpr.completed}</p>
-                  <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.75rem', color: '#64748b', marginTop: '0.5rem', borderTop: '1px dashed #e2e8f0', paddingTop: '0.4rem' }}>
-                    <span>Workers: <strong>{dpr.workersPresent} present</strong></span>
-                    <span>Site Condition: <strong>Good</strong></span>
-                  </div>
-                  {dpr.issues && (
-                    <p style={{ fontSize: '0.75rem', color: '#b91c1c', backgroundColor: '#fef2f2', padding: '0.35rem 0.5rem', borderRadius: '4px', marginTop: '0.4rem' }}>
-                      ⚠️ Site Issue: {dpr.issues}
-                    </p>
-                  )}
+                ))
+              ) : (
+                <div style={{ padding: '2rem', textAlign: 'center', color: '#64748b', backgroundColor: '#f8fafc', borderRadius: '8px', border: '1px dashed #cbd5e1' }}>
+                  <p style={{ fontSize: '0.85rem' }}>No daily progress logs submitted yet.</p>
                 </div>
-              ))}
+              )}
             </div>
           </div>
 
@@ -368,13 +610,7 @@ export default function ProjectDashboard() {
               <CheckCircle2 size={18} style={{ color: '#059669' }} /> Milestone Completion Schedule
             </h3>
             <div style={{ display: 'flex', flexDirection: 'column', gap: '0.85rem' }}>
-              {[
-                { name: 'Substructure & Foundation Piling', status: 'COMPLETED', date: 'March 2026' },
-                { name: 'Core Shear Walls & Podium Slabs', status: 'COMPLETED', date: 'June 2026' },
-                { name: 'Superstructure Framing (L15-L25)', status: 'IN_PROGRESS', date: 'October 2026' },
-                { name: 'Curtain Wall & Facade Enclosure', status: 'PENDING', date: 'November 2026' },
-                { name: 'MEP Fit-Out & Final Commissioning', status: 'PLANNING', date: 'December 2026' }
-              ].map((m, idx) => (
+              {(project.milestones && project.milestones.length > 0) ? project.milestones.map((m, idx) => (
                 <div key={idx} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '0.75rem', borderRadius: '6px', backgroundColor: '#f8fafc', border: '1px solid #f1f5f9' }}>
                   <div>
                     <p style={{ fontWeight: 600, color: '#0f172a', fontSize: '0.85rem' }}>{m.name}</p>
@@ -382,7 +618,27 @@ export default function ProjectDashboard() {
                   </div>
                   <Badge status={m.status} />
                 </div>
-              ))}
+              )) : project.name === 'BALA HOME' ? (
+                [
+                  { name: 'Substructure & Foundation Piling', status: 'COMPLETED', date: 'March 2026' },
+                  { name: 'Core Shear Walls & Podium Slabs', status: 'COMPLETED', date: 'June 2026' },
+                  { name: 'Superstructure Framing (L1-L2)', status: 'IN_PROGRESS', date: 'October 2026' },
+                  { name: 'Brick Masonry Wall Construction', status: 'PENDING', date: 'November 2026' },
+                  { name: 'MEP Fit-Out & Final Commissioning', status: 'PLANNING', date: 'December 2026' }
+                ].map((m, idx) => (
+                  <div key={idx} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '0.75rem', borderRadius: '6px', backgroundColor: '#f8fafc', border: '1px solid #f1f5f9' }}>
+                    <div>
+                      <p style={{ fontWeight: 600, color: '#0f172a', fontSize: '0.85rem' }}>{m.name}</p>
+                      <span style={{ fontSize: '0.75rem', color: '#64748b' }}>Target: {m.date}</span>
+                    </div>
+                    <Badge status={m.status} />
+                  </div>
+                ))
+              ) : (
+                <div style={{ padding: '2rem', textAlign: 'center', color: '#64748b', backgroundColor: '#f8fafc', borderRadius: '8px', border: '1px dashed #cbd5e1' }}>
+                  <p style={{ fontSize: '0.85rem' }}>No milestones defined yet.</p>
+                </div>
+              )}
             </div>
           </div>
         </div>
@@ -412,11 +668,32 @@ export default function ProjectDashboard() {
               <Table
                 columns={[
                   { header: 'Staff Name', accessor: 'name' },
-                  { header: 'System Role', accessor: 'role', render: (row) => row.role.replace('_', ' ') },
+                  { header: 'System Role', accessor: 'role', render: (row) => row.role?.replace('_', ' ') },
                   { header: 'Contact Email', accessor: 'email' },
-                  { header: 'Assignment Status', accessor: 'status', render: () => <span style={{ color: '#059669', fontWeight: 600 }}>Active</span> }
+                  { header: 'Assignment Status', accessor: 'status', render: (row) => <span style={{ color: row.status?.includes('Pending') ? '#d97706' : '#059669', fontWeight: 600 }}>{row.status || 'Active'}</span> },
+                  {
+                    header: 'Action',
+                    render: (row) => (
+                      <button
+                        type="button"
+                        style={{
+                          backgroundColor: 'transparent',
+                          color: '#ef4444',
+                          border: 'none',
+                          cursor: 'pointer',
+                          fontWeight: 600,
+                          fontSize: '0.8rem',
+                          textDecoration: 'underline'
+                        }}
+                        onClick={() => handleUnassignStaff(row.id)}
+                      >
+                        Remove
+                      </button>
+                    )
+                  }
                 ]}
                 data={assignedStaff}
+                emptyMessage="No site engineers or contractors assigned to this project yet. Click 'Assign Site Engineer / Contractor' above to assign team members."
               />
             </>
           ) : (
@@ -559,7 +836,7 @@ export default function ProjectDashboard() {
                   }
                 }
               ]}
-              data={project.materials || []}
+              data={projectMaterials}
             />
           </div>
         </div>
@@ -691,37 +968,106 @@ export default function ProjectDashboard() {
       <Modal
         isOpen={assignStaffModalOpen}
         onClose={() => setAssignStaffModalOpen(false)}
-        title={`Assign Staff to ${project?.name}`}
-        subtitle="Invite or assign a Site Engineer or Contractor to oversee operations."
-        maxWidth="500px"
+        title={`Assign Staff to ${project?.name || 'Project'}`}
+        subtitle="Assign an existing team member or invite a new Site Engineer/Contractor."
+        maxWidth="520px"
         footer={
           <>
             <Button variant="outline" onClick={() => setAssignStaffModalOpen(false)}>
               Cancel
             </Button>
-            <Button variant="primary" onClick={handleStaffSubmit} disabled={isInviting}>
-              {isInviting ? 'Assigning...' : 'Assign to Site'}
-            </Button>
+            {assignMode === 'EXISTING' ? (
+              <Button variant="primary" onClick={handleAssignExistingStaff} disabled={!selectedStaffId}>
+                Assign to Project
+              </Button>
+            ) : (
+              <Button variant="primary" onClick={handleStaffSubmit} disabled={isInviting}>
+                {isInviting ? 'Inviting...' : 'Invite & Assign'}
+              </Button>
+            )}
           </>
         }
       >
-        <form style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+        <div style={{ marginBottom: '1.25rem', display: 'flex', gap: '0.5rem', borderBottom: '1px solid #e2e8f0', paddingBottom: '0.75rem' }}>
+          <button
+            type="button"
+            onClick={() => setAssignMode('EXISTING')}
+            style={{
+              padding: '0.5rem 1rem',
+              borderRadius: '6px',
+              border: 'none',
+              fontWeight: 600,
+              fontSize: '0.85rem',
+              cursor: 'pointer',
+              backgroundColor: assignMode === 'EXISTING' ? '#0284c7' : '#f1f5f9',
+              color: assignMode === 'EXISTING' ? '#ffffff' : '#475569'
+            }}
+          >
+            Assign Existing Member
+          </button>
+          <button
+            type="button"
+            onClick={() => setAssignMode('NEW')}
+            style={{
+              padding: '0.5rem 1rem',
+              borderRadius: '6px',
+              border: 'none',
+              fontWeight: 600,
+              fontSize: '0.85rem',
+              cursor: 'pointer',
+              backgroundColor: assignMode === 'NEW' ? '#0284c7' : '#f1f5f9',
+              color: assignMode === 'NEW' ? '#ffffff' : '#475569'
+            }}
+          >
+            Invite New Staff
+          </button>
+        </div>
+
+        {assignMode === 'EXISTING' ? (
           <div>
-            <label style={{ display: 'block', fontSize: '0.8rem', fontWeight: 700, marginBottom: '0.25rem' }}>Full Name *</label>
-            <input type="text" value={staffForm.name} onChange={(e) => setStaffForm({...staffForm, name: e.target.value})} style={{ width: '100%', padding: '0.5rem', borderRadius: '4px', border: '1px solid #cbd5e1' }} required placeholder="e.g. Rahul Sharma" />
+            <label style={{ display: 'block', fontSize: '0.85rem', fontWeight: 700, marginBottom: '0.5rem', color: '#1e293b' }}>
+              Select Site Engineer or Contractor
+            </label>
+            {availableCompanyStaff.filter(s => !assignedStaff.some(a => a.id === s.id)).length > 0 ? (
+              <select
+                value={selectedStaffId}
+                onChange={(e) => setSelectedStaffId(e.target.value)}
+                style={{ width: '100%', padding: '0.6rem', borderRadius: '6px', border: '1px solid #cbd5e1', fontSize: '0.9rem', backgroundColor: '#ffffff' }}
+              >
+                <option value="">-- Choose from available staff --</option>
+                {availableCompanyStaff
+                  .filter(s => !assignedStaff.some(a => a.id === s.id))
+                  .map(s => (
+                    <option key={s.id} value={s.id}>
+                      {s.name} ({s.role?.replace('_', ' ')}) - {s.email}
+                    </option>
+                  ))}
+              </select>
+            ) : (
+              <div style={{ padding: '1.25rem', backgroundColor: '#f8fafc', borderRadius: '6px', border: '1px dashed #cbd5e1', textAlign: 'center', color: '#64748b', fontSize: '0.85rem' }}>
+                All registered company site engineers and contractors are already assigned to this project, or none exist yet. Switch to "Invite New Staff" to add more.
+              </div>
+            )}
           </div>
-          <div>
-            <label style={{ display: 'block', fontSize: '0.8rem', fontWeight: 700, marginBottom: '0.25rem' }}>Email Address *</label>
-            <input type="email" value={staffForm.email} onChange={(e) => setStaffForm({...staffForm, email: e.target.value})} style={{ width: '100%', padding: '0.5rem', borderRadius: '4px', border: '1px solid #cbd5e1' }} required placeholder="rahul@example.com" />
-          </div>
-          <div>
-            <label style={{ display: 'block', fontSize: '0.8rem', fontWeight: 700, marginBottom: '0.25rem' }}>Project Role *</label>
-            <select value={staffForm.role} onChange={(e) => setStaffForm({...staffForm, role: e.target.value})} style={{ width: '100%', padding: '0.5rem', borderRadius: '4px', border: '1px solid #cbd5e1' }}>
-              <option value="SITE_ENGINEER">Site Engineer</option>
-              <option value="CONTRACTOR">Contractor</option>
-            </select>
-          </div>
-        </form>
+        ) : (
+          <form onSubmit={handleStaffSubmit} style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+            <div>
+              <label style={{ display: 'block', fontSize: '0.8rem', fontWeight: 700, marginBottom: '0.25rem' }}>Full Name *</label>
+              <input type="text" value={staffForm.name} onChange={(e) => setStaffForm({...staffForm, name: e.target.value})} style={{ width: '100%', padding: '0.5rem', borderRadius: '4px', border: '1px solid #cbd5e1' }} required placeholder="e.g. Rahul Sharma" />
+            </div>
+            <div>
+              <label style={{ display: 'block', fontSize: '0.8rem', fontWeight: 700, marginBottom: '0.25rem' }}>Email Address *</label>
+              <input type="email" value={staffForm.email} onChange={(e) => setStaffForm({...staffForm, email: e.target.value})} style={{ width: '100%', padding: '0.5rem', borderRadius: '4px', border: '1px solid #cbd5e1' }} required placeholder="rahul@example.com" />
+            </div>
+            <div>
+              <label style={{ display: 'block', fontSize: '0.8rem', fontWeight: 700, marginBottom: '0.25rem' }}>Project Role *</label>
+              <select value={staffForm.role} onChange={(e) => setStaffForm({...staffForm, role: e.target.value})} style={{ width: '100%', padding: '0.5rem', borderRadius: '4px', border: '1px solid #cbd5e1' }}>
+                <option value="SITE_ENGINEER">Site Engineer</option>
+                <option value="CONTRACTOR">Contractor</option>
+              </select>
+            </div>
+          </form>
+        )}
       </Modal>
 
       {/* Add Worker Modal (Site Engineer / Contractor) */}

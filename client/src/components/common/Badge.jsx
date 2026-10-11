@@ -20,6 +20,8 @@ const STATUS_CONFIGS = {
   EXCESS_FLAGGED: { label: 'Excess Alert', bg: '#fef2f2', text: '#dc2626', border: '#f87171' },
   LOW_STOCK: { label: 'Low Stock', bg: '#fff7ed', text: '#c2410c', border: '#fdba74' },
   IN_STOCK: { label: 'In Stock', bg: '#ecfdf5', text: '#047857', border: '#a7f3d0' },
+  ISSUED: { label: 'Issued', bg: '#eff6ff', text: '#1d4ed8', border: '#bfdbfe' },
+  UNDER_REVIEW: { label: 'Under Review', bg: '#fef3c7', text: '#b45309', border: '#fde68a' },
   
   // Attendance & Priorities
   PRESENT: { label: 'Present', bg: '#ecfdf5', text: '#047857', border: '#a7f3d0' },

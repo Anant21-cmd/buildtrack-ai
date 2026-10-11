@@ -22,8 +22,13 @@ exports.getCompanyDailyProgresss = async (req, res, next) => {
   try {
     if (!req.user.companyId) return res.status(403).json({ message: 'Must belong to a company' });
 
+    const whereClause = { companyId: req.user.companyId };
+    if (req.user.role === 'CLIENT') {
+      whereClause.project = { client: req.user.name };
+    }
+
     const records = await prisma.dailyProgress.findMany({ 
-      where: { companyId: req.user.companyId },
+      where: whereClause,
       orderBy: { createdAt: 'desc' }
     });
     res.status(200).json(records);

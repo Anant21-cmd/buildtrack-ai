@@ -28,7 +28,7 @@ export function MaterialProvider({ children }) {
   const { currentUser, token } = useAuth();
 
   const fetchMaterials = useCallback(async () => {
-    if (!token || !currentUser?.companyId) return;
+    if (!token || (!currentUser?.companyId && currentUser?.role !== 'SUPER_ADMIN')) return;
     try {
       const res = await fetch('/api/materials', {
         headers: { Authorization: `Bearer ${token}` }
@@ -41,7 +41,7 @@ export function MaterialProvider({ children }) {
   }, [token, currentUser]);
 
   useEffect(() => {
-    if (currentUser?.companyId) fetchMaterials();
+    if (currentUser?.companyId || currentUser?.role === 'SUPER_ADMIN') fetchMaterials();
   }, [currentUser, fetchMaterials]);
 
   const addMaterial = async (materialData) => {

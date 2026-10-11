@@ -44,12 +44,12 @@ const IssueList = () => {
     { 
       header: 'Severity', 
       accessor: 'severity',
-      render: (row) => <Badge variant={getSeverityBadge(row.severity)}>{row.severity}</Badge>
+      render: (row) => <Badge status={row.severity} />
     },
     { 
       header: 'Status', 
       accessor: 'status',
-      render: (row) => <Badge variant={getStatusBadge(row.status)}>{row.status}</Badge>
+      render: (row) => <Badge status={row.status} />
     },
     { header: 'Date', accessor: 'date' },
     {

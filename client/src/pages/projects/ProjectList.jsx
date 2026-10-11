@@ -19,10 +19,13 @@ import Badge from '../../components/common/Badge';
 import Table from '../../components/common/Table';
 import Modal from '../../components/common/Modal';
 import { useProjects, PROJECT_STATUSES } from '../../context/ProjectContext';
-import { Sparkles, Wand2 } from 'lucide-react';
+import { useAuth } from '../../context/AuthContext';
+import { Sparkles, Wand2, Loader2, CheckCircle2 } from 'lucide-react';
+import { geocodeAddress } from '../../utils/geocoding';
 
 export default function ProjectList() {
   const { projects, addProject, updateProject, archiveProject } = useProjects();
+  const { currentUser } = useAuth();
   const navigate = useNavigate();
 
   // Status Filter Tab
@@ -40,8 +43,8 @@ export default function ProjectList() {
     code: '',
     client: '',
     location: '',
-    latitude: 41.8781,
-    longitude: -87.6298,
+    latitude: 9.1724,
+    longitude: 77.8687,
     radiusMeters: 250,
     startDate: '',
     endDate: '',
@@ -51,6 +54,34 @@ export default function ProjectList() {
   };
   const [formData, setFormData] = useState(initialForm);
   const [formError, setFormError] = useState('');
+  const [isGeocoding, setIsGeocoding] = useState(false);
+  const [geocodeStatus, setGeocodeStatus] = useState('');
+
+  const handleGeocode = async (addressToGeocode) => {
+    const targetAddr = addressToGeocode || formData.location;
+    if (!targetAddr || !targetAddr.trim()) return;
+
+    setIsGeocoding(true);
+    setGeocodeStatus('Locating physical address on satellite map...');
+    try {
+      const res = await geocodeAddress(targetAddr.trim());
+      if (res && res.lat && res.lng) {
+        setFormData(prev => ({
+          ...prev,
+          latitude: res.lat,
+          longitude: res.lng
+        }));
+        setGeocodeStatus(`✓ Real GPS: ${res.lat.toFixed(5)}, ${res.lng.toFixed(5)} (${res.name || targetAddr})`);
+      } else {
+        setGeocodeStatus('Approximate region coordinates assigned.');
+      }
+    } catch (err) {
+      console.error('Geocode error:', err);
+      setGeocodeStatus('Error resolving coordinates.');
+    } finally {
+      setIsGeocoding(false);
+    }
+  };
 
 
   const handleGenerateCode = () => {
@@ -107,15 +138,25 @@ Client: ${formData.client || 'TBD'}
     }
 
     try {
-      await addProject(formData);
+      const submitData = { ...formData };
+      if (submitData.location && (!submitData.latitude || (submitData.latitude > 41 && submitData.latitude < 43))) {
+        const geo = await geocodeAddress(submitData.location);
+        if (geo) {
+          submitData.latitude = geo.lat;
+          submitData.longitude = geo.lng;
+        }
+      }
+
+      await addProject(submitData);
       setCreateModalOpen(false);
       setFormData(initialForm);
+      setGeocodeStatus('');
     } catch (err) {
       setFormError(err.message || 'Failed to create project');
     }
   };
 
-  const handleEditSubmit = (e) => {
+  const handleEditSubmit = async (e) => {
     e.preventDefault();
     setFormError('');
 
@@ -124,13 +165,28 @@ Client: ${formData.client || 'TBD'}
       return;
     }
 
-    updateProject(selectedProject.id, formData);
-    setEditModalOpen(false);
-    setSelectedProject(null);
+    try {
+      const submitData = { ...formData };
+      if (submitData.location && (!submitData.latitude || (submitData.latitude > 41 && submitData.latitude < 43))) {
+        const geo = await geocodeAddress(submitData.location);
+        if (geo) {
+          submitData.latitude = geo.lat;
+          submitData.longitude = geo.lng;
+        }
+      }
+
+      await updateProject(selectedProject.id, submitData);
+      setEditModalOpen(false);
+      setSelectedProject(null);
+      setGeocodeStatus('');
+    } catch (err) {
+      setFormError(err.message || 'Failed to update project');
+    }
   };
 
   const openEditModal = (proj) => {
     setSelectedProject(proj);
+    setGeocodeStatus(proj.latitude && proj.longitude ? `Current GPS: ${Number(proj.latitude).toFixed(4)}, ${Number(proj.longitude).toFixed(4)}` : '');
     setFormData({
       name: proj.name,
       code: proj.code,
@@ -247,23 +303,27 @@ Client: ${formData.client || 'TBD'}
             Dashboard
           </Button>
 
-          <Button
-            size="sm"
-            variant="outline"
-            icon={Edit2}
-            onClick={() => openEditModal(row)}
-            title="Edit Project Details"
-          />
-
-          {!row.isArchived && (
-            <Button
-              size="sm"
-              variant="outline"
-              icon={Archive}
-              onClick={() => openArchiveModal(row)}
-              title="Archive Project"
-              style={{ color: '#dc2626' }}
-            />
+          {currentUser?.role !== 'CLIENT' && (
+            <>
+              <Button
+                size="sm"
+                variant="outline"
+                icon={Edit2}
+                onClick={() => openEditModal(row)}
+                title="Edit Project Details"
+              />
+  
+              {!row.isArchived && (
+                <Button
+                  size="sm"
+                  variant="outline"
+                  icon={Archive}
+                  onClick={() => openArchiveModal(row)}
+                  title="Archive Project"
+                  style={{ color: '#dc2626' }}
+                />
+              )}
+            </>
           )}
         </div>
       )
@@ -286,9 +346,11 @@ Client: ${formData.client || 'TBD'}
           </p>
         </div>
 
-        <Button variant="warning" icon={Plus} onClick={() => setCreateModalOpen(true)}>
-          New Construction Project
-        </Button>
+        {currentUser?.role === 'COMPANY_ADMIN' && (
+          <Button variant="warning" icon={Plus} onClick={() => setCreateModalOpen(true)}>
+            New Construction Project
+          </Button>
+        )}
       </div>
 
       {/* Filter Tabs */}
@@ -439,18 +501,56 @@ Client: ${formData.client || 'TBD'}
           </div>
 
           <div>
-            <label style={{ display: 'block', fontSize: '0.8rem', fontWeight: 700, color: '#334155', marginBottom: '0.25rem' }}>
-              Physical Site Location / Address *
-            </label>
-            <input
-              type="text"
-              name="location"
-              required
-              placeholder="e.g. 450 N Michigan Ave, Chicago, IL"
-              value={formData.location}
-              onChange={handleInputChange}
-              style={{ width: '100%', padding: '0.6rem 0.75rem', borderRadius: '6px', border: '1px solid #cbd5e1', fontSize: '0.875rem' }}
-            />
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.25rem' }}>
+              <label style={{ fontSize: '0.8rem', fontWeight: 700, color: '#334155' }}>
+                Physical Site Location / Address *
+              </label>
+              {formData.latitude && formData.longitude && (
+                <span style={{ fontSize: '0.725rem', color: '#0284c7', fontWeight: 600, display: 'flex', alignItems: 'center', gap: '0.25rem' }}>
+                  <Compass size={12} />
+                  GPS: {Number(formData.latitude).toFixed(4)}, {Number(formData.longitude).toFixed(4)}
+                </span>
+              )}
+            </div>
+            <div style={{ display: 'flex', gap: '0.5rem' }}>
+              <input
+                type="text"
+                name="location"
+                required
+                placeholder="e.g. KR Nagar, Kovilpatti or Anna Nagar, Madurai"
+                value={formData.location}
+                onChange={handleInputChange}
+                onBlur={() => handleGeocode(formData.location)}
+                style={{ flex: 1, padding: '0.6rem 0.75rem', borderRadius: '6px', border: '1px solid #cbd5e1', fontSize: '0.875rem' }}
+              />
+              <button
+                type="button"
+                onClick={() => handleGeocode(formData.location)}
+                disabled={isGeocoding}
+                style={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '0.3rem',
+                  padding: '0.6rem 0.85rem',
+                  borderRadius: '6px',
+                  border: '1px solid #0284c7',
+                  backgroundColor: '#f0f9ff',
+                  color: '#0284c7',
+                  fontSize: '0.775rem',
+                  fontWeight: 700,
+                  cursor: isGeocoding ? 'not-allowed' : 'pointer',
+                  whiteSpace: 'nowrap'
+                }}
+              >
+                {isGeocoding ? <Loader2 size={13} className="animate-spin" /> : <MapPin size={13} />}
+                {isGeocoding ? 'Locating...' : 'Locate GPS'}
+              </button>
+            </div>
+            {geocodeStatus && (
+              <p style={{ margin: '0.35rem 0 0 0', fontSize: '0.725rem', color: '#059669', fontWeight: 600, display: 'flex', alignItems: 'center', gap: '0.25rem' }}>
+                <CheckCircle2 size={12} /> {geocodeStatus}
+              </p>
+            )}
           </div>
 
 
@@ -608,16 +708,54 @@ Client: ${formData.client || 'TBD'}
           </div>
 
           <div>
-            <label style={{ display: 'block', fontSize: '0.8rem', fontWeight: 700, color: '#334155', marginBottom: '0.25rem' }}>
-              Site Address
-            </label>
-            <input
-              type="text"
-              name="location"
-              value={formData.location}
-              onChange={handleInputChange}
-              style={{ width: '100%', padding: '0.6rem', borderRadius: '6px', border: '1px solid #cbd5e1', fontSize: '0.875rem' }}
-            />
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.25rem' }}>
+              <label style={{ fontSize: '0.8rem', fontWeight: 700, color: '#334155' }}>
+                Site Address
+              </label>
+              {formData.latitude && formData.longitude && (
+                <span style={{ fontSize: '0.725rem', color: '#0284c7', fontWeight: 600, display: 'flex', alignItems: 'center', gap: '0.25rem' }}>
+                  <Compass size={12} />
+                  GPS: {Number(formData.latitude).toFixed(4)}, {Number(formData.longitude).toFixed(4)}
+                </span>
+              )}
+            </div>
+            <div style={{ display: 'flex', gap: '0.5rem' }}>
+              <input
+                type="text"
+                name="location"
+                value={formData.location}
+                onChange={handleInputChange}
+                onBlur={() => handleGeocode(formData.location)}
+                style={{ flex: 1, padding: '0.6rem 0.75rem', borderRadius: '6px', border: '1px solid #cbd5e1', fontSize: '0.875rem' }}
+              />
+              <button
+                type="button"
+                onClick={() => handleGeocode(formData.location)}
+                disabled={isGeocoding}
+                style={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '0.3rem',
+                  padding: '0.6rem 0.85rem',
+                  borderRadius: '6px',
+                  border: '1px solid #0284c7',
+                  backgroundColor: '#f0f9ff',
+                  color: '#0284c7',
+                  fontSize: '0.775rem',
+                  fontWeight: 700,
+                  cursor: isGeocoding ? 'not-allowed' : 'pointer',
+                  whiteSpace: 'nowrap'
+                }}
+              >
+                {isGeocoding ? <Loader2 size={13} className="animate-spin" /> : <MapPin size={13} />}
+                {isGeocoding ? 'Locating...' : 'Locate GPS'}
+              </button>
+            </div>
+            {geocodeStatus && (
+              <p style={{ margin: '0.35rem 0 0 0', fontSize: '0.725rem', color: '#059669', fontWeight: 600, display: 'flex', alignItems: 'center', gap: '0.25rem' }}>
+                <CheckCircle2 size={12} /> {geocodeStatus}
+              </p>
+            )}
           </div>
 
           <div style={{ display: 'grid', gridTemplateColumns: '1fr', gap: '1rem' }}>

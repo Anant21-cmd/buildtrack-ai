@@ -5,7 +5,12 @@ import Badge from '../../components/common/Badge';
 import { useCompany } from '../../context/CompanyContext';
 
 export default function AuditLogsView() {
-  const { auditLogs } = useCompany();
+  const { auditLogs, companies } = useCompany();
+
+  const getCompanyName = (entityId) => {
+    const comp = companies?.find(c => c.id === entityId || c.name === entityId);
+    return comp ? comp.name : (entityId || '-');
+  };
   const [filterAction, setFilterAction] = useState('ALL');
 
   const filteredLogs = auditLogs.filter((log) => {
@@ -38,6 +43,15 @@ export default function AuditLogsView() {
       )
     },
     {
+      header: 'Target Organization',
+      accessor: 'entityId',
+      render: (row) => (
+        <span style={{ fontWeight: 600, color: '#1e293b', fontSize: '0.85rem' }}>
+          {getCompanyName(row.entityId)}
+        </span>
+      )
+    },
+    {
       header: 'Action Taken',
       accessor: 'action',
       render: (row) => {
@@ -53,36 +67,6 @@ export default function AuditLogsView() {
         );
       }
     },
-    {
-      header: 'Target Entity',
-      accessor: 'entityId',
-      render: (row) => (
-        <div>
-          <span style={{ fontSize: '0.75rem', fontWeight: 700, color: '#64748b' }}>{row.entity}</span>
-          <p style={{ fontWeight: 600, color: '#1e293b' }}>{row.entityId}</p>
-        </div>
-      )
-    },
-    {
-      header: 'State Delta',
-      accessor: 'newValue',
-      render: (row) => (
-        <div style={{ fontSize: '0.8rem' }}>
-          <span style={{ color: '#94a3b8', textDecoration: 'line-through' }}>{row.previousValue}</span>
-          <span style={{ color: '#64748b', margin: '0 0.35rem' }}>➔</span>
-          <strong style={{ color: '#0f172a' }}>{row.newValue}</strong>
-        </div>
-      )
-    },
-    {
-      header: 'Justification / Reason',
-      accessor: 'reason',
-      render: (row) => (
-        <p style={{ fontSize: '0.825rem', color: '#475569', maxWidth: '300px' }}>
-          {row.reason}
-        </p>
-      )
-    }
   ];
 
   return (
